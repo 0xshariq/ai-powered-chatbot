@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { X, LogIn } from "lucide-react"
+import { LogIn } from "lucide-react"
 
 export function HeaderNav() {
   return (

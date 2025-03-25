@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Get the generative model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Generate text using Gemini
     const result = await model.generateContent(prompt);

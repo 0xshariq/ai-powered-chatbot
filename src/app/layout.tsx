@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Chat Interface",
-  description: "A generative AI agent chat interface",
+  title: "AI Chat Bot",
+  description: "A simple AI chat bot using Google Generative AI",
 }
 
 export default function RootLayout({

@@ -8,7 +8,7 @@ export function SidebarNav() {
       <div className="p-4 border-b">
         <div className="flex items-center gap-2">
           <div className="h-6 w-6 rounded-full bg-primary" />
-          <span className="font-semibold">AI Image Generator</span>
+          <span className="font-semibold">AI Chatbot</span>
         </div>
       </div>
       <ScrollArea className="h-[calc(100vh-64px)]">

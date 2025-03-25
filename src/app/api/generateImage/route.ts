@@ -12,10 +12,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    // Get the generative model (use gemini-pro-vision for image generation context)
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+    // Get the generative model (use gemini-1.5-flash for image generation context)
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // Generate content using gemini-pro-vision, which can handle image generation requests.
+    // Generate content using gemini-1.5-flash, which can handle image generation requests.
     const result = await model.generateContent([
       prompt, // The prompt
       // In a real implementation, you would pass an image here if you wanted to use an existing one as context.
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     // In a production environment, you would replace the placeholder with the actual generated image URL.
     // Assuming the API returns a proper image URL or base64 data.
-    const mediaUrl = text.match(/(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg)\))/i)?.[0] || `/placeholder.svg?height=400&width=600`; //try to get the image url from the response, if not found, use placeholder.
+    const mediaUrl = text.match(/(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))/i)?.[0] || `/placeholder.svg?height=400&width=600`; //try to get the image url from the response, if not found, use placeholder.
     const type = mediaUrl.endsWith(".svg") ? "image" : "image"; //always return image, for consistency
 
     return NextResponse.json({

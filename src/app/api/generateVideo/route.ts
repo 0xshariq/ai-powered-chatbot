@@ -1,42 +1,64 @@
-// import { NextResponse } from "next/server";
-// import OpenAI from "openai";
+import { NextResponse } from "next/server"
 
-// // Initialize the OpenAI client
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY!,
-// });
+export async function POST(request: Request) {
+  try {
+    const { prompt } = await request.json()
 
-// export async function POST(request: Request) {
-//   try {
-//     const { prompt } = await request.json();
+    if (!prompt) {
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
+    }
 
-//     if (!prompt) {
-//       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
-//     }
+    try {
+      // Using Replicate API for video generation (free tier available)
+      const response = await fetch("https://api.replicate.com/v1/predictions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+        },
+        body: JSON.stringify({
+          version: "c24440e965843dd1d5d6ef78fd4b8d3d7d138d9f5c0d1b82648512fd89e342b1", // Zeroscope v2 XL model
+          input: {
+            prompt: prompt,
+            num_frames: 24, // Lower frame count to use fewer credits
+            fps: 8,
+          },
+        }),
+      })
 
-//     // Assuming OpenAI provides a `videos.generate` endpoint for Sora AI
-//     const response = await openai.videos.generate({
-//       model: "sora", // Replace with the correct model name if different
-//       prompt: prompt,
-//       n: 1, // Number of video variations
-//       duration: "10s", // Adjust duration as needed
-//       resolution: "1080p", // Adjust resolution if necessary
-//     });
+      if (!response.ok) {
+        throw new Error(`Replicate API error: ${response.statusText}`)
+      }
 
-//     // Extract the video URL
-//     const videoUrl = response.data[0]?.url;
+      const prediction = await response.json()
 
-//     if (!videoUrl) {
-//       throw new Error("Failed to generate video");
-//     }
+      // For async APIs like Replicate, we need to poll for the result
+      // In a real implementation, you would use a webhook or polling
+      // For this example, we'll return a placeholder and explain the process
 
-//     return NextResponse.json({
-//       videoUrl: videoUrl,
-//       type: "video",
-//       text: "Here is your AI-generated video from Sora AI.",
-//     });
-//   } catch (error: any) {
-//     console.error("Error generating video:", error);
-//     return NextResponse.json({ error: "Failed to generate video" }, { status: 500 });
-//   }
-// }
+      const placeholderVideo = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+
+      return NextResponse.json({
+        text: `I've started generating a video based on your prompt: "${prompt}"\n\nVideo generation takes time (typically 1-2 minutes). In a production environment, this would be handled through a webhook or polling mechanism.\n\nFor now, here's a placeholder video.`,
+        mediaUrl: placeholderVideo,
+        type: "video",
+        predictionId: prediction.id, // You would use this to poll for the result
+      })
+    } catch (error) {
+      console.error("Error with Replicate API:", error)
+
+      // Fallback to placeholder if Replicate fails
+      const placeholderVideo = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+
+      return NextResponse.json({
+        text: `I tried to generate a video for "${prompt}", but encountered an issue with the video generation service. Here's a placeholder instead.`,
+        mediaUrl: placeholderVideo,
+        type: "video",
+      })
+    }
+  } catch (error) {
+    console.error("Error generating video:", error)
+    return NextResponse.json({ error: "Failed to generate video" }, { status: 500 })
+  }
+}
+

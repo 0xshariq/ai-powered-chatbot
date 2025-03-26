@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { Github, Twitter, Mail } from "lucide-react"
+import { Github, Twitter, Mail, Instagram, Linkedin, Youtube } from "lucide-react"
 
 export function Footer() {
   return (
@@ -17,6 +17,15 @@ export function Footer() {
               <Twitter className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Instagram className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Linkedin className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Youtube className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
               <Mail className="h-4 w-4" />
             </Button>
           </div>
@@ -27,6 +36,10 @@ export function Footer() {
             <span className="mx-2">·</span>
             <a href="#" className="hover:underline">
               Privacy
+            </a>
+            <span className="mx-2">·</span>
+            <a href="#" className="hover:underline">
+              Contact
             </a>
           </div>
         </div>

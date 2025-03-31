@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Initialize the Google Generative AI model - Gemini Pro has a free tier
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+if (!process.env.GOOGLE_AI_API_KEY) {
+  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.");
+}
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
 
 export async function POST(request: Request) {
   try {

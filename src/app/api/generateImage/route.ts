@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Initialize the Google Generative AI model
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+if (!process.env.GOOGLE_AI_API_KEY) {
+  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.");
+}
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
 
 export async function POST(request: Request) {
   try {
@@ -28,11 +31,11 @@ export async function POST(request: Request) {
     ]);
 
     const response = await result.response;
-    const text = response.text();
+    const text = await response.text();
 
     // In a production environment, you would replace the placeholder with the actual generated image URL.
     // Assuming the API returns a proper image URL or base64 data.
-    const mediaUrl = text.match(/(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))/i)?.[0] || `/placeholder.svg?height=400&width=600`; //try to get the image url from the response, if not found, use placeholder.
+    const mediaUrl = text.match(/https?:\/\/[^\s]+(?:png|jpg|jpeg|gif|svg)/i)?.[0] || "/placeholder.svg?height=400&width=600"; // Try to extract the image URL or use a placeholder.
     const type = mediaUrl.endsWith(".svg") ? "image" : "image"; //always return image, for consistency
 
     return NextResponse.json({

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { VertexAI } from "@google-cloud/vertexai";
 
-if (!process.env.GOOGLE_AI_API_KEY) {
-  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.");
-}
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+const vertexAI = new VertexAI({
+  project: process.env.GOOGLE_CLOUD_PROJECT_ID!,
+  location: "us-central1",
+});
 
 export async function POST(request: Request) {
   try {
@@ -14,25 +16,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    // Use vision model for image-related processing
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    // Generate enhanced prompt with Gemini 2.0 Flash
+    const geminiModel = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { temperature: 0.9 }
+    });
 
-    // Generate detailed image description
-    const descriptionResult = await model.generateContent(
-      `Generate a detailed image description for: "${prompt}". 
-      Include visual elements, style, colors, and composition.`
+    const geminiResult = await geminiModel.generateContent(
+      `Enhance this image generation prompt with rich visual details: "${prompt}". 
+      Include style references, color palette, and composition details.`
     );
     
-    const description = (await descriptionResult.response).text();
+    const enhancedPrompt = (await geminiResult.response).text();
 
-    // In production, replace this with actual image generation API call
-    // This is a placeholder using Unsplash random images
-    const imageUrl = `https://source.unsplash.com/featured/800x600/?${encodeURIComponent(
-      prompt.replace(/ /g, ',')
-    )}`;
+    // Generate image with Imagen 3
+    const imagenClient = vertexAI.getGenerativeModel({
+      model: "imagegeneration@005",
+    });
+
+    const imagenResponse = await imagenClient.generateImages({
+      prompt: enhancedPrompt,
+      numberOfImages: 1,
+      dimensions: { width: 1024, height: 1024 },
+      quality: "high",
+      safetySettings: [
+        { category: "HARM_CATEGORY_DANGEROUS", threshold: "BLOCK_LOW_AND_ABOVE" },
+        { category: "HARM_CATEGORY_HATE", threshold: "BLOCK_LOW_AND_ABOVE" },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_LOW_AND_ABOVE" },
+        { category: "HARM_CATEGORY_SEXUAL", threshold: "BLOCK_LOW_AND_ABOVE" },
+      ],
+    });
+
+    const imageUrl = imagenResponse.images[0].url;
 
     return NextResponse.json({
-      text: `I generated an image based on: "${prompt}". Description: ${description}`,
+      text: `Generated image for: ${prompt}\nEnhanced prompt: ${enhancedPrompt}`,
       mediaUrl: imageUrl
     });
 

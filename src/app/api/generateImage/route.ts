@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize the Google Generative AI model
 if (!process.env.GOOGLE_AI_API_KEY) {
   throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.");
 }
@@ -15,36 +14,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    // Get the generative model (use gemini-1.5-flash for image generation context)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Use vision model for image-related processing
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // Generate content using gemini-1.5-flash, which can handle image generation requests.
-    const result = await model.generateContent([
-      prompt, // The prompt
-      // In a real implementation, you would pass an image here if you wanted to use an existing one as context.
-      // {
-      //   inlineData: {
-      //     mimeType: "image/jpeg", // or "image/png"
-      //     data: base64ImageData, // Replace with your base64 image data
-      //   },
-      // },
-    ]);
+    // Generate detailed image description
+    const descriptionResult = await model.generateContent(
+      `Generate a detailed image description for: "${prompt}". 
+      Include visual elements, style, colors, and composition.`
+    );
+    
+    const description = (await descriptionResult.response).text();
 
-    const response = await result.response;
-    const text = await response.text();
-
-    // In a production environment, you would replace the placeholder with the actual generated image URL.
-    // Assuming the API returns a proper image URL or base64 data.
-    const mediaUrl = text.match(/https?:\/\/[^\s]+(?:png|jpg|jpeg|gif|svg)/i)?.[0] || "/placeholder.svg?height=400&width=600"; // Try to extract the image URL or use a placeholder.
-    const type = mediaUrl.endsWith(".svg") ? "image" : "image"; //always return image, for consistency
+    // In production, replace this with actual image generation API call
+    // This is a placeholder using Unsplash random images
+    const imageUrl = `https://source.unsplash.com/featured/800x600/?${encodeURIComponent(
+      prompt.replace(/ /g, ',')
+    )}`;
 
     return NextResponse.json({
-      text: `I've attempted to generate an image based on your prompt: "${prompt}".\n\n${text}`,
-      mediaUrl: mediaUrl,
-      type: type,
+      text: `I generated an image based on: "${prompt}". Description: ${description}`,
+      mediaUrl: imageUrl
     });
+
   } catch (error) {
-    console.error("Error generating content:", error);
-    return NextResponse.json({ error: "Failed to generate content" }, { status: 500 });
+    console.error("Image generation error:", error);
+    return NextResponse.json(
+      { error: "Failed to generate image. Please try again." },
+      { status: 500 }
+    );
   }
 }

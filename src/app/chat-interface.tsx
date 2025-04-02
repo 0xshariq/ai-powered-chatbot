@@ -32,27 +32,22 @@ export default function ChatInterface() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [])
 
-  // Listen for chat selection events from the HistoryPanelContainer
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
       const { chatId } = e.detail
       setCurrentChatId(chatId)
-
-      // In a real app, you would load the messages for this chat from a database
-      // For now, we'll just simulate it with placeholder messages
       setMessages([
         {
           role: "user",
-          content: "Selected chat " + chatId,
+          content: `Selected chat ${chatId}`,
           timestamp: new Date().toLocaleTimeString(),
           type: "text",
         },
         {
           role: "assistant",
-          content:
-            "This is a placeholder for the selected chat. In a real application, the actual chat messages would be loaded here.",
+          content: "This is a placeholder for the selected chat. In a real application, the actual chat messages would be loaded here.",
           timestamp: new Date().toLocaleTimeString(),
           type: "text",
         },
@@ -73,49 +68,44 @@ export default function ChatInterface() {
     }
   }, [])
 
-  // Save chat to history when messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      // Get the last assistant message for the preview
-      const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
+    if (messages.length === 0) return
 
-      // Generate a title from the first user message
-      const title =
-        messages[0]?.role === "user"
-          ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
-          : "New Chat"
+    // Get the last assistant message for the preview
+    const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
 
-      // Create preview from the last exchange
-      const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
+    // Generate a title from the first user message
+    const title = messages[0]?.role === "user"
+      ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
+      : "New Chat"
 
-      // Update history via custom event
-      window.dispatchEvent(
-        new CustomEvent("chatUpdate", {
-          detail: {
-            chatId: currentChatId,
-            title,
-            preview,
-            timestamp: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString(),
-          },
-        }),
-      )
-    }
+    // Create preview from the last exchange
+    const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
+
+    // Update history via custom event
+    window.dispatchEvent(
+      new CustomEvent("chatUpdate", {
+        detail: {
+          chatId: currentChatId,
+          title,
+          preview,
+          timestamp: `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+        },
+      }),
+    )
   }, [messages, currentChatId])
 
   const handleSubmit = async () => {
     if (!input.trim() || isLoading) return
 
-    const now = new Date()
-    const timestamp = now.toLocaleTimeString()
-
     const userMessage: Message = {
       role: "user",
       content: input,
-      timestamp,
+      timestamp: new Date().toLocaleTimeString(),
       type: generationType,
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    setMessages(prev => [...prev, userMessage])
     setIsLoading(true)
 
     try {
@@ -129,11 +119,11 @@ export default function ChatInterface() {
       if (!response.ok) throw new Error("Failed to generate response")
 
       const data = await response.json()
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
         {
           role: "assistant",
-          content: data.text || "Generated content",
+          content: data.text,
           timestamp: new Date().toLocaleTimeString(),
           type: generationType,
           mediaUrl: data.mediaUrl,
@@ -141,7 +131,7 @@ export default function ChatInterface() {
       ])
     } catch (error) {
       console.error("Error generating response:", error)
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
         {
           role: "assistant",
@@ -180,8 +170,8 @@ export default function ChatInterface() {
               </div>
             )}
 
-            {messages.map((message, index) => (
-              <div key={index} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
+            {messages.map((message) => (
+              <div key={message.timestamp + message.role} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
                 <div
                   className={cn(
                     "max-w-[80%] rounded-lg p-4",
@@ -190,18 +180,21 @@ export default function ChatInterface() {
                 >
                   {message.type === "image" && message.mediaUrl ? (
                     <div className="space-y-3">
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      <div className="relative h-[300px] w-full">
+                      <div className="relative w-full aspect-square max-w-[600px]">
                         <Image
-                          src={message.mediaUrl || "/placeholder.svg"}
-                          alt={`Generated image for prompt: ${message.content}`}
+                          src={message.mediaUrl}
+                          alt={`Generated image for: ${message.content}`}
                           fill
+                          className="rounded-md object-cover"
                           sizes="(max-width: 768px) 100vw, 600px"
-                          className="rounded-md object-contain"
+                          priority
                         />
                       </div>
+                      <p className="text-sm text-muted-foreground">
+                        {message.content}
+                      </p>
                     </div>
-                  ) : message.type === "video" && message.mediaUrl ? (
+                    ) : message.type === "video" && message.mediaUrl ? (
                     <div className="space-y-3">
                       <p className="whitespace-pre-wrap">{message.content}</p>
                       <video
@@ -209,7 +202,15 @@ export default function ChatInterface() {
                         controls
                         className="rounded-md max-w-full max-h-[300px]"
                         aria-label={`Generated video for prompt: ${message.content}`}
-                      />
+                      >
+                        <track
+                          kind="captions"
+                          srcLang="en"
+                          src="/path-to-captions.vtt"
+                          label="English"
+                          default
+                        />
+                      </video>
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap">{message.content}</p>
@@ -284,7 +285,7 @@ export default function ChatInterface() {
 
           <div className="flex-1 relative">
             <Textarea
-              placeholder={`Ask me anything or describe what to generate...`}
+              placeholder="Ask me anything or describe what to generate..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -306,4 +307,3 @@ export default function ChatInterface() {
     </div>
   )
 }
-

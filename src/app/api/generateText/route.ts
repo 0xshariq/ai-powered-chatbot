@@ -1,34 +1,40 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize the Google Generative AI model - Gemini Pro has a free tier
+// Ensure API key is available
 if (!process.env.GOOGLE_AI_API_KEY) {
-  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.");
+  throw new Error("GOOGLE_AI_API_KEY is missing from environment variables.");
 }
+
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
 
 export async function POST(request: Request) {
   try {
     const { prompt } = await request.json();
 
-    if (!prompt) {
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+    if (!prompt || typeof prompt !== "string") {
+      return NextResponse.json({ error: "Invalid or missing prompt." }, { status: 400 });
     }
 
     // Get the generative model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // Generate text using Gemini
+    // Generate text response
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    let text = response.text().trim();
+
+    // Ensure response is human-readable
+    text = text.replace(/\n{2,}/g, "\n"); // Reduce excessive line breaks
+    text = text.replace(/[*_]/g, ""); // Remove markdown formatting
+    text = text.replace(/\s+/g, " ").trim(); // Normalize whitespace
 
     return NextResponse.json({
-      text: text,
+      text,
       type: "text",
     });
   } catch (error) {
     console.error("Error generating text:", error);
-    return NextResponse.json({ error: "Failed to generate text" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate response. Please try again." }, { status: 500 });
   }
 }

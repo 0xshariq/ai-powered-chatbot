@@ -36,13 +36,16 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
   // Scroll to bottom whenever messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+    }
   }, [])
 
-  // Listen for chat selection events from the HistoryPanelContainer
+  // Listen for chat selection events from the HistoryPanel
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
       const { chatId } = e.detail
@@ -113,23 +116,25 @@ export default function ChatInterface() {
   const handleSubmit = async () => {
     if (!input.trim() || isLoading) return
 
+    const currentInput = input
+    setInput("") // Clear input immediately after submission
+
     const userMessage: Message = {
       role: "user",
-      content: input,
+      content: currentInput,
       timestamp: new Date().toLocaleTimeString(),
       type: generationType,
     }
 
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
-    setInput("") // Clear input immediately after submission
 
     try {
       const endpoint = `/api/generate${generationType.charAt(0).toUpperCase() + generationType.slice(1)}`
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input }),
+        body: JSON.stringify({ prompt: currentInput }),
       })
 
       if (!response.ok) throw new Error("Failed to generate response")
@@ -206,13 +211,13 @@ export default function ChatInterface() {
         },
       ])
 
-      // Fix: Use the correct toast API from sonner
+      // Use the correct toast API from sonner
       toast("File uploaded", {
         description: `${data.fileName} has been uploaded successfully.`,
       })
     } catch (error) {
       console.error("Error uploading file:", error)
-      // Fix: Use the correct toast API from sonner
+      // Use the correct toast API from sonner
       toast.error("Upload failed", {
         description: "There was an error uploading your file.",
       })
@@ -226,10 +231,11 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex flex-col h-full" ref={chatContainerRef}>
+      {/* Messages area - fixed height, scrollable */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full p-4">
-          <div className="space-y-4">
+          <div className="space-y-4 pb-4">
             {messages.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
                 <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -242,8 +248,11 @@ export default function ChatInterface() {
               </div>
             )}
 
-            {messages.map((message) => (
-              <div key={`${message.timestamp}-${message.role}`} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
+            {messages.map((message, index) => (
+              <div
+                key={`${message.timestamp}-${index}`}
+                className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}
+              >
                 <div
                   className={cn(
                     "max-w-[80%] rounded-lg p-4",
@@ -343,7 +352,8 @@ export default function ChatInterface() {
         </ScrollArea>
       </div>
 
-      <div className="p-4 border-t sticky bottom-0 bg-background">
+      {/* Input area - fixed at bottom */}
+      <div className="p-4 border-t bg-background">
         <div className="flex gap-2 items-end">
           <Select value={generationType} onValueChange={(value) => setGenerationType(value as GenerationType)}>
             <SelectTrigger className="w-[120px]">
@@ -409,7 +419,7 @@ export default function ChatInterface() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="min-h-[44px] max-h-32 pr-10"
+              className="min-h-[44px] max-h-32 pr-10 resize-none"
               rows={1}
             />
             <Button

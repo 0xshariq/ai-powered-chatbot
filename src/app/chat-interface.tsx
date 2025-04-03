@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -24,6 +22,8 @@ interface Message {
   mediaUrl?: string
   fileType?: string
   fileName?: string
+  liked?: boolean
+  disliked?: boolean
 }
 
 export default function ChatInterface() {
@@ -51,8 +51,7 @@ export default function ChatInterface() {
       const { chatId } = e.detail
       setCurrentChatId(chatId)
 
-      // In a real app, you would load the messages for this chat from a database
-      // For now, we'll just simulate it with placeholder messages
+      // Simulate loading messages for the selected chat
       setMessages([
         {
           role: "user",
@@ -87,19 +86,13 @@ export default function ChatInterface() {
   // Save chat to history when messages change
   useEffect(() => {
     if (messages.length > 0) {
-      // Get the last assistant message for the preview
       const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
-
-      // Generate a title from the first user message
       const title =
         messages[0]?.role === "user"
           ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
           : "New Chat"
-
-      // Create preview from the last exchange
       const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
 
-      // Update history via custom event
       window.dispatchEvent(
         new CustomEvent("chatUpdate", {
           detail: {
@@ -117,7 +110,7 @@ export default function ChatInterface() {
     if (!input.trim() || isLoading) return
 
     const currentInput = input
-    setInput("") // Clear input immediately after submission
+    setInput("")
 
     const userMessage: Message = {
       role: "user",
@@ -163,7 +156,6 @@ export default function ChatInterface() {
       ])
     } finally {
       setIsLoading(false)
-      // Focus the textarea after submission
       setTimeout(() => {
         textareaRef.current?.focus()
       }, 0)
@@ -177,77 +169,32 @@ export default function ChatInterface() {
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+  const handleCopy = (content: string) => {
+    navigator.clipboard.writeText(content)
+    toast("Message copied to clipboard")
+  }
 
-    const file = files[0]
-    setIsUploading(true)
+  const handleLike = (index: number) => {
+    setMessages((prev) =>
+      prev.map((message, i) =>
+        i === index ? { ...message, liked: !message.liked, disliked: false } : message,
+      ),
+    )
+  }
 
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) throw new Error("Upload failed")
-
-      const data = await response.json()
-
-      // Add file message to chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "user",
-          content: `Uploaded file: ${data.fileName}`,
-          timestamp: new Date().toLocaleTimeString(),
-          type: data.fileType.startsWith("image/") ? "image" : "text",
-          mediaUrl: data.fileUrl,
-          fileType: data.fileType,
-          fileName: data.fileName,
-        },
-      ])
-
-      // Use the correct toast API from sonner
-      toast("File uploaded", {
-        description: `${data.fileName} has been uploaded successfully.`,
-      })
-    } catch (error) {
-      console.error("Error uploading file:", error)
-      // Use the correct toast API from sonner
-      toast.error("Upload failed", {
-        description: "There was an error uploading your file.",
-      })
-    } finally {
-      setIsUploading(false)
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
-    }
+  const handleDislike = (index: number) => {
+    setMessages((prev) =>
+      prev.map((message, i) =>
+        i === index ? { ...message, disliked: !message.disliked, liked: false } : message,
+      ),
+    )
   }
 
   return (
     <div className="flex flex-col h-full" ref={chatContainerRef}>
-      {/* Messages area - fixed height, scrollable */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4 pb-4">
-            {messages.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <MessageSquare className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">How can I help you today?</h3>
-                <p className="text-muted-foreground max-w-md">
-                  Ask me anything or select a generation type to create text, images, or videos.
-                </p>
-              </div>
-            )}
-
             {messages.map((message, index) => (
               <div
                 key={`${message.timestamp}-${index}`}
@@ -259,69 +206,31 @@ export default function ChatInterface() {
                     message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted",
                   )}
                 >
-                  {message.type === "image" && message.mediaUrl ? (
-                    <div className="space-y-3">
-                      <div className="relative w-full aspect-square max-w-[600px]">
-                        <Image
-                          src={message.mediaUrl || "/placeholder.svg"}
-                          alt={`Generated image for: ${message.content}`}
-                          fill
-                          className="rounded-md object-cover"
-                          sizes="(max-width: 768px) 100vw, 600px"
-                          priority
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-2">{message.content}</p>
-                    </div>
-                  ) : message.type === "video" && message.mediaUrl ? (
-                    <div className="space-y-3">
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      <video
-                        src={message.mediaUrl}
-                        controls
-                        className="rounded-md max-w-full max-h-[300px]"
-                        aria-label={`Generated video for prompt: ${message.content}`}
-                      >
-                        <track kind="captions" srcLang="en" src="/path-to-captions.vtt" label="English" default />
-                      </video>
-                    </div>
-                  ) : message.fileType?.startsWith("image/") && message.mediaUrl ? (
-                    <div className="space-y-3">
-                      <div className="relative w-full aspect-square max-w-[600px]">
-                        <Image
-                          src={message.mediaUrl || "/placeholder.svg"}
-                          alt={`Uploaded image: ${message.fileName || "file"}`}
-                          fill
-                          className="rounded-md object-cover"
-                          sizes="(max-width: 768px) 100vw, 600px"
-                          priority
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-2">{message.content}</p>
-                    </div>
-                  ) : message.fileType && message.mediaUrl ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <File className="h-5 w-5" />
-                        <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                          {message.fileName || "Download file"}
-                        </a>
-                      </div>
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                  )}
-
+                  <p className="whitespace-pre-wrap">{message.content}</p>
                   {message.role === "assistant" && (
                     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-muted-foreground/20">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-full"
+                        onClick={() => handleCopy(message.content)}
+                      >
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                      <Button
+                        variant={message.liked ? "default" : "ghost"}
+                        size="icon"
+                        className="h-7 w-7 rounded-full"
+                        onClick={() => handleLike(index)}
+                      >
                         <ThumbsUp className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
+                      <Button
+                        variant={message.disliked ? "default" : "ghost"}
+                        size="icon"
+                        className="h-7 w-7 rounded-full"
+                        onClick={() => handleDislike(index)}
+                      >
                         <ThumbsDown className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -329,30 +238,11 @@ export default function ChatInterface() {
                 </div>
               </div>
             ))}
-
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg p-4">
-                  <div className="flex space-x-2">
-                    <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" />
-                    <div
-                      className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    />
-                    <div
-                      className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce"
-                      style={{ animationDelay: "0.4s" }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
 
-      {/* Input area - fixed at bottom */}
       <div className="p-4 border-t bg-background">
         <div className="flex gap-2 items-end">
           <Select value={generationType} onValueChange={(value) => setGenerationType(value as GenerationType)}>
@@ -406,7 +296,7 @@ export default function ChatInterface() {
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
-                onChange={handleFileUpload}
+                onChange={() => {}}
                 accept="image/*,.pdf,.doc,.docx,.txt"
               />
             </PopoverContent>
@@ -437,4 +327,3 @@ export default function ChatInterface() {
     </div>
   )
 }
-

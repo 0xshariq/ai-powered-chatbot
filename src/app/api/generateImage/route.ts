@@ -1,64 +1,59 @@
-import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { VertexAI } from "@google-cloud/vertexai";
+import { NextResponse } from "next/server"
+import OpenAI from "openai"
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
-const vertexAI = new VertexAI({
-  project: process.env.GOOGLE_CLOUD_PROJECT_ID!,
-  location: "us-central1",
-});
+// Initialize OpenAI client with DALL-E 3
+const openai = new OpenAI({
+  apiKey: (() => {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not defined in the environment variables");
+    }
+    return process.env.OPENAI_API_KEY;
+  })(),
+})
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = await request.json();
+    const { prompt } = await request.json()
 
     if (!prompt) {
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // Generate enhanced prompt with Gemini 2.0 Flash
-    const geminiModel = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: { temperature: 0.9 }
-    });
+    try {
+      // Generate image using DALL-E 3
+      const response = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024", // DALL-E 3 supports 1024x1024, 1792x1024, or 1024x1792
+        quality: "standard", // or "hd" for higher quality
+        style: "vivid", // or "natural" for less dramatic results
+      })
 
-    const geminiResult = await geminiModel.generateContent(
-      `Enhance this image generation prompt with rich visual details: "${prompt}". 
-      Include style references, color palette, and composition details.`
-    );
-    
-    const enhancedPrompt = (await geminiResult.response).text();
+      const imageUrl = response.data[0].url
 
-    // Generate image with Imagen 3
-    const imagenClient = vertexAI.getGenerativeModel({
-      model: "imagegeneration@005",
-    });
+      return NextResponse.json({
+        text: `Generated image for: "${prompt}"`,
+        mediaUrl: imageUrl,
+        type: "image",
+      })
+    } catch (openaiError) {
+      console.error("OpenAI error:", openaiError)
 
-    const imagenResponse = await imagenClient.generateImages({
-      prompt: enhancedPrompt,
-      numberOfImages: 1,
-      dimensions: { width: 1024, height: 1024 },
-      quality: "high",
-      safetySettings: [
-        { category: "HARM_CATEGORY_DANGEROUS", threshold: "BLOCK_LOW_AND_ABOVE" },
-        { category: "HARM_CATEGORY_HATE", threshold: "BLOCK_LOW_AND_ABOVE" },
-        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_LOW_AND_ABOVE" },
-        { category: "HARM_CATEGORY_SEXUAL", threshold: "BLOCK_LOW_AND_ABOVE" },
-      ],
-    });
+      // Fallback to placeholder if OpenAI fails
+      const placeholderWidth = 1024
+      const placeholderHeight = 1024
+      const mediaUrl = `/placeholder.svg?height=${placeholderHeight}&width=${placeholderWidth}`
 
-    const imageUrl = imagenResponse.images[0].url;
-
-    return NextResponse.json({
-      text: `Generated image for: ${prompt}\nEnhanced prompt: ${enhancedPrompt}`,
-      mediaUrl: imageUrl
-    });
-
+      return NextResponse.json({
+        text: `I tried to generate an image for "${prompt}", but encountered an issue with the image generation service. Here's a placeholder instead.`,
+        mediaUrl: mediaUrl,
+        type: "image",
+      })
+    }
   } catch (error) {
-    console.error("Image generation error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate image. Please try again." },
-      { status: 500 }
-    );
+    console.error("Error generating image:", error)
+    return NextResponse.json({ error: "Failed to generate image" }, { status: 500 })
   }
 }
+

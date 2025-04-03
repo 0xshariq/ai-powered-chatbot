@@ -1,5 +1,4 @@
 import type React from "react"
-import { SidebarNav } from "@/components/sidebar-nav"
 import { HeaderNav } from "@/components/header-nav"
 import { Footer } from "@/components/footer"
 import { HistoryPanelContainer } from "@/components/history-panel-container"
@@ -11,23 +10,18 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <SidebarNav />
+      {/* History Panel (replacing sidebar) */}
+      <HistoryPanelContainer />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <HeaderNav />
 
-        {/* Main content area with history panel */}
-        <div className="flex-1 flex">
-          <div className="flex-1 flex flex-col">
-            <div className="flex-1">{children}</div>
-            <Footer />
-          </div>
-
-          {/* History Panel */}
-          <HistoryPanelContainer />
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1">{children}</div>
+          <Footer />
         </div>
       </div>
     </div>

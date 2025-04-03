@@ -6,11 +6,13 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, ThumbsUp, ThumbsDown, ImageIcon, Video, MessageSquare, Send } from "lucide-react"
+import { Copy, ThumbsUp, ThumbsDown, ImageIcon, Video, MessageSquare, Send, Plus, File } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { v4 as uuidv4 } from "uuid"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { toast } from "sonner"
 
 type GenerationType = "text" | "image" | "video"
 
@@ -20,6 +22,8 @@ interface Message {
   timestamp: string
   type?: GenerationType
   mediaUrl?: string
+  fileType?: string
+  fileName?: string
 }
 
 export default function ChatInterface() {
@@ -28,16 +32,24 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [currentChatId, setCurrentChatId] = useState<string>(uuidv4())
+  const [isUploading, setIsUploading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Scroll to bottom whenever messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [])
 
+  // Listen for chat selection events from the HistoryPanelContainer
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
       const { chatId } = e.detail
       setCurrentChatId(chatId)
+
+      // In a real app, you would load the messages for this chat from a database
+      // For now, we'll just simulate it with placeholder messages
       setMessages([
         {
           role: "user",
@@ -47,7 +59,8 @@ export default function ChatInterface() {
         },
         {
           role: "assistant",
-          content: "This is a placeholder for the selected chat. In a real application, the actual chat messages would be loaded here.",
+          content:
+            "This is a placeholder for the selected chat. In a real application, the actual chat messages would be loaded here.",
           timestamp: new Date().toLocaleTimeString(),
           type: "text",
         },
@@ -68,31 +81,33 @@ export default function ChatInterface() {
     }
   }, [])
 
+  // Save chat to history when messages change
   useEffect(() => {
-    if (messages.length === 0) return
+    if (messages.length > 0) {
+      // Get the last assistant message for the preview
+      const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
 
-    // Get the last assistant message for the preview
-    const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
+      // Generate a title from the first user message
+      const title =
+        messages[0]?.role === "user"
+          ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
+          : "New Chat"
 
-    // Generate a title from the first user message
-    const title = messages[0]?.role === "user"
-      ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
-      : "New Chat"
+      // Create preview from the last exchange
+      const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
 
-    // Create preview from the last exchange
-    const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
-
-    // Update history via custom event
-    window.dispatchEvent(
-      new CustomEvent("chatUpdate", {
-        detail: {
-          chatId: currentChatId,
-          title,
-          preview,
-          timestamp: `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
-        },
-      }),
-    )
+      // Update history via custom event
+      window.dispatchEvent(
+        new CustomEvent("chatUpdate", {
+          detail: {
+            chatId: currentChatId,
+            title,
+            preview,
+            timestamp: `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+          },
+        }),
+      )
+    }
   }, [messages, currentChatId])
 
   const handleSubmit = async () => {
@@ -105,8 +120,9 @@ export default function ChatInterface() {
       type: generationType,
     }
 
-    setMessages(prev => [...prev, userMessage])
+    setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
+    setInput("") // Clear input immediately after submission
 
     try {
       const endpoint = `/api/generate${generationType.charAt(0).toUpperCase() + generationType.slice(1)}`
@@ -119,11 +135,11 @@ export default function ChatInterface() {
       if (!response.ok) throw new Error("Failed to generate response")
 
       const data = await response.json()
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: data.text,
+          content: data.text || "Generated content",
           timestamp: new Date().toLocaleTimeString(),
           type: generationType,
           mediaUrl: data.mediaUrl,
@@ -131,7 +147,7 @@ export default function ChatInterface() {
       ])
     } catch (error) {
       console.error("Error generating response:", error)
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
@@ -142,7 +158,10 @@ export default function ChatInterface() {
       ])
     } finally {
       setIsLoading(false)
-      setInput("")
+      // Focus the textarea after submission
+      setTimeout(() => {
+        textareaRef.current?.focus()
+      }, 0)
     }
   }
 
@@ -150,6 +169,59 @@ export default function ChatInterface() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const file = files[0]
+    setIsUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) throw new Error("Upload failed")
+
+      const data = await response.json()
+
+      // Add file message to chat
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "user",
+          content: `Uploaded file: ${data.fileName}`,
+          timestamp: new Date().toLocaleTimeString(),
+          type: data.fileType.startsWith("image/") ? "image" : "text",
+          mediaUrl: data.fileUrl,
+          fileType: data.fileType,
+          fileName: data.fileName,
+        },
+      ])
+
+      // Fix: Use the correct toast API from sonner
+      toast("File uploaded", {
+        description: `${data.fileName} has been uploaded successfully.`,
+      })
+    } catch (error) {
+      console.error("Error uploading file:", error)
+      // Fix: Use the correct toast API from sonner
+      toast.error("Upload failed", {
+        description: "There was an error uploading your file.",
+      })
+    } finally {
+      setIsUploading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
     }
   }
 
@@ -171,7 +243,7 @@ export default function ChatInterface() {
             )}
 
             {messages.map((message) => (
-              <div key={message.timestamp + message.role} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
+              <div key={`${message.timestamp}-${message.role}`} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
                 <div
                   className={cn(
                     "max-w-[80%] rounded-lg p-4",
@@ -182,7 +254,7 @@ export default function ChatInterface() {
                     <div className="space-y-3">
                       <div className="relative w-full aspect-square max-w-[600px]">
                         <Image
-                          src={message.mediaUrl}
+                          src={message.mediaUrl || "/placeholder.svg"}
                           alt={`Generated image for: ${message.content}`}
                           fill
                           className="rounded-md object-cover"
@@ -190,11 +262,9 @@ export default function ChatInterface() {
                           priority
                         />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {message.content}
-                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">{message.content}</p>
                     </div>
-                    ) : message.type === "video" && message.mediaUrl ? (
+                  ) : message.type === "video" && message.mediaUrl ? (
                     <div className="space-y-3">
                       <p className="whitespace-pre-wrap">{message.content}</p>
                       <video
@@ -203,14 +273,32 @@ export default function ChatInterface() {
                         className="rounded-md max-w-full max-h-[300px]"
                         aria-label={`Generated video for prompt: ${message.content}`}
                       >
-                        <track
-                          kind="captions"
-                          srcLang="en"
-                          src="/path-to-captions.vtt"
-                          label="English"
-                          default
-                        />
+                        <track kind="captions" srcLang="en" src="/path-to-captions.vtt" label="English" default />
                       </video>
+                    </div>
+                  ) : message.fileType?.startsWith("image/") && message.mediaUrl ? (
+                    <div className="space-y-3">
+                      <div className="relative w-full aspect-square max-w-[600px]">
+                        <Image
+                          src={message.mediaUrl || "/placeholder.svg"}
+                          alt={`Uploaded image: ${message.fileName || "file"}`}
+                          fill
+                          className="rounded-md object-cover"
+                          sizes="(max-width: 768px) 100vw, 600px"
+                          priority
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">{message.content}</p>
+                    </div>
+                  ) : message.fileType && message.mediaUrl ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <File className="h-5 w-5" />
+                        <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                          {message.fileName || "Download file"}
+                        </a>
+                      </div>
+                      <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap">{message.content}</p>
@@ -255,7 +343,7 @@ export default function ChatInterface() {
         </ScrollArea>
       </div>
 
-      <div className="p-4 border-t">
+      <div className="p-4 border-t sticky bottom-0 bg-background">
         <div className="flex gap-2 items-end">
           <Select value={generationType} onValueChange={(value) => setGenerationType(value as GenerationType)}>
             <SelectTrigger className="w-[120px]">
@@ -283,8 +371,40 @@ export default function ChatInterface() {
             </SelectContent>
           </Select>
 
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10" disabled={isUploading}>
+                {isUploading ? (
+                  <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" align="start">
+              <div className="grid gap-1">
+                <Button variant="ghost" className="justify-start" onClick={() => fileInputRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Upload image
+                </Button>
+                <Button variant="ghost" className="justify-start" onClick={() => fileInputRef.current?.click()}>
+                  <File className="mr-2 h-4 w-4" />
+                  Upload file
+                </Button>
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileUpload}
+                accept="image/*,.pdf,.doc,.docx,.txt"
+              />
+            </PopoverContent>
+          </Popover>
+
           <div className="flex-1 relative">
             <Textarea
+              ref={textareaRef}
               placeholder="Ask me anything or describe what to generate..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -307,3 +427,4 @@ export default function ChatInterface() {
     </div>
   )
 }
+

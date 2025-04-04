@@ -7,7 +7,7 @@ export function Footer() {
     <footer className="border-t py-4 px-6">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} AI Image Generator. All rights reserved.
+          © {new Date().getFullYear()} AI Powered Chatbot. All rights reserved.
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">

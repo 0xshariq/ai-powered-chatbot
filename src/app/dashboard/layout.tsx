@@ -3,8 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import { HeaderNav } from "@/components/header-nav"
-import { Footer } from "@/components/footer"
 import { HistoryPanel } from "@/components/history-panel"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -23,8 +21,8 @@ export default function DashboardLayout({
         {isHistoryOpen && (
           <HistoryPanel
             history={[]} // Replace with actual history data
-            onSelectChat={(chatId) => console.log("Selected chat:", chatId)} // Replace with actual handler
-            onDeleteChat={(chatId) => console.log("Deleted chat:", chatId)} // Replace with actual handler
+            onSelectChat={(chatId) => console.log("Chat selected:", chatId)} // Replace with actual handler
+            onDeleteChat={(chatId) => console.log("Chat deleted:", chatId)} // Replace with actual handler
             onNewChat={() => console.log("New chat created")} // Replace with actual handler
             currentChatId="" // Replace with actual current chat ID
           />
@@ -43,13 +41,9 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <HeaderNav />
-
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-hidden">{children}</div>
-          <Footer />
         </div>
       </div>
     </div>

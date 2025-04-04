@@ -18,7 +18,7 @@ type FeedbackType = "liked" | "disliked" | null
 
 interface Message {
   id: string
-  role: "assistant" | "user" | "system"
+  role: "assistant" | "user" 
   content: string
   timestamp: string
   type?: GenerationType
@@ -325,22 +325,6 @@ export default function ChatInterface() {
     }, 0)
   }
 
-  // Add a welcome message if there are no messages
-  useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: uuidv4(),
-          role: "system",
-          content:
-            "This is an open source chatbot template built with Next.js and the AI SDK by Vercel. It uses the streamText function in the server and the useChat hook on the client to create a seamless chat experience.",
-          timestamp: new Date().toLocaleTimeString(),
-          type: "text",
-        },
-      ])
-    }
-  }, [messages.length])
-
   return (
     <div className="flex flex-col h-full bg-black text-white" ref={chatContainerRef}>
       {/* No header needed here as it's in the layout */}
@@ -351,127 +335,103 @@ export default function ChatInterface() {
               messages.map((message, index) => (
                 <div
                   key={message.id || `${message.timestamp}-${index}`}
-                  className={cn("flex flex-col", message.role === "system" && "items-center text-center")}
+                  className="flex flex-col"
                 >
-                  {message.role === "system" ? (
-                    <div className="max-w-xl space-y-4">
-                      <div className="flex justify-center">
-                        <div className="bg-white rounded-full p-2">
-                          <Image
-                            src="/placeholder.svg?height=40&width=40"
-                            alt="Logo"
-                            width={40}
-                            height={40}
-                            className="rounded-full"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-lg">{message.content}</p>
-                      <p className="text-sm text-gray-400">
-                        You can learn more about the AI SDK by visiting the{" "}
-                        <Link href="#" className="underline">
-                          docs
-                        </Link>
-                        .
-                      </p>
+                  <div
+                  className={cn(
+                    "max-w-3xl rounded-lg p-4",
+                    message.role === "user" ? "bg-gray-800" : "bg-transparent",
+                  )}
+                  >
+                  {message.type === "image" && message.mediaUrl ? (
+                    <div className="space-y-3">
+                    <div className="relative w-full aspect-square max-w-[600px]">
+                      <Image
+                      src={message.mediaUrl || "/placeholder.svg"}
+                      alt={`Generated image for: ${message.content}`}
+                      fill
+                      className="rounded-md object-cover"
+                      sizes="(max-width: 768px) 100vw, 600px"
+                      priority
+                      />
+                    </div>
+                    <p className="text-sm text-gray-400 mt-2">{message.content}</p>
+                    </div>
+                  ) : message.type === "video" && message.mediaUrl ? (
+                    <div className="space-y-3">
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <video
+                      src={message.mediaUrl}
+                      controls
+                      className="rounded-md max-w-full max-h-[300px]"
+                      aria-label={`Generated video for prompt: ${message.content}`}
+                    >
+                      <track kind="captions" srcLang="en" src="/path-to-captions.vtt" label="English" default />
+                    </video>
+                    </div>
+                  ) : message.fileType?.startsWith("image/") && message.mediaUrl ? (
+                    <div className="space-y-3">
+                    <div className="relative w-full aspect-square max-w-[600px]">
+                      <Image
+                      src={message.mediaUrl || "/placeholder.svg"}
+                      alt={`Uploaded image: ${message.fileName || "file"}`}
+                      fill
+                      className="rounded-md object-cover"
+                      sizes="(max-width: 768px) 100vw, 600px"
+                      priority
+                      />
+                    </div>
+                    <p className="text-sm text-gray-400 mt-2">{message.content}</p>
+                    </div>
+                  ) : message.fileType && message.mediaUrl ? (
+                    <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <File className="h-5 w-5" />
+                      <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                      {message.fileName || "Download file"}
+                      </a>
+                    </div>
+                    <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                   ) : (
-                    <div
-                      className={cn(
-                        "max-w-3xl rounded-lg p-4",
-                        message.role === "user" ? "bg-gray-800" : "bg-transparent",
-                      )}
-                    >
-                      {message.type === "image" && message.mediaUrl ? (
-                        <div className="space-y-3">
-                          <div className="relative w-full aspect-square max-w-[600px]">
-                            <Image
-                              src={message.mediaUrl || "/placeholder.svg"}
-                              alt={`Generated image for: ${message.content}`}
-                              fill
-                              className="rounded-md object-cover"
-                              sizes="(max-width: 768px) 100vw, 600px"
-                              priority
-                            />
-                          </div>
-                          <p className="text-sm text-gray-400 mt-2">{message.content}</p>
-                        </div>
-                      ) : message.type === "video" && message.mediaUrl ? (
-                        <div className="space-y-3">
-                          <p className="whitespace-pre-wrap">{message.content}</p>
-                          <video
-                            src={message.mediaUrl}
-                            controls
-                            className="rounded-md max-w-full max-h-[300px]"
-                            aria-label={`Generated video for prompt: ${message.content}`}
-                          >
-                            <track kind="captions" srcLang="en" src="/path-to-captions.vtt" label="English" default />
-                          </video>
-                        </div>
-                      ) : message.fileType?.startsWith("image/") && message.mediaUrl ? (
-                        <div className="space-y-3">
-                          <div className="relative w-full aspect-square max-w-[600px]">
-                            <Image
-                              src={message.mediaUrl || "/placeholder.svg"}
-                              alt={`Uploaded image: ${message.fileName || "file"}`}
-                              fill
-                              className="rounded-md object-cover"
-                              sizes="(max-width: 768px) 100vw, 600px"
-                              priority
-                            />
-                          </div>
-                          <p className="text-sm text-gray-400 mt-2">{message.content}</p>
-                        </div>
-                      ) : message.fileType && message.mediaUrl ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2">
-                            <File className="h-5 w-5" />
-                            <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                              {message.fileName || "Download file"}
-                            </a>
-                          </div>
-                          <p className="whitespace-pre-wrap">{message.content}</p>
-                        </div>
-                      ) : (
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      )}
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  )}
 
-                      {message.role === "assistant" && (
-                        <div className="flex items-center gap-2 mt-4 text-gray-400">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full hover:bg-gray-800"
-                            onClick={() => handleCopy(message.content)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant={message.feedback === "liked" ? "default" : "ghost"}
-                            size="icon"
-                            className={cn(
-                              "h-8 w-8 rounded-full hover:bg-gray-800",
-                              message.feedback === "liked" && "bg-green-600 hover:bg-green-700",
-                            )}
-                            onClick={() => handleFeedback(message.id, "liked")}
-                          >
-                            <ThumbsUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant={message.feedback === "disliked" ? "default" : "ghost"}
-                            size="icon"
-                            className={cn(
-                              "h-8 w-8 rounded-full hover:bg-gray-800",
-                              message.feedback === "disliked" && "bg-red-600 hover:bg-red-700",
-                            )}
-                            onClick={() => handleFeedback(message.id, "disliked")}
-                          >
-                            <ThumbsDown className="h-4 w-4" />
-                          </Button>
-                        </div>
+                  {message.role === "assistant" && (
+                    <div className="flex items-center gap-2 mt-4 text-gray-400">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full hover:bg-gray-800"
+                      onClick={() => handleCopy(message.content)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={message.feedback === "liked" ? "default" : "ghost"}
+                      size="icon"
+                      className={cn(
+                      "h-8 w-8 rounded-full hover:bg-gray-800",
+                      message.feedback === "liked" && "bg-green-600 hover:bg-green-700",
                       )}
+                      onClick={() => handleFeedback(message.id, "liked")}
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={message.feedback === "disliked" ? "default" : "ghost"}
+                      size="icon"
+                      className={cn(
+                      "h-8 w-8 rounded-full hover:bg-gray-800",
+                      message.feedback === "disliked" && "bg-red-600 hover:bg-red-700",
+                      )}
+                      onClick={() => handleFeedback(message.id, "disliked")}
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                    </Button>
                     </div>
                   )}
+                  </div>
                 </div>
               ))
             ) : (
@@ -505,7 +465,7 @@ export default function ChatInterface() {
             )}
 
             {/* Suggestions */}
-            {messages.length === 1 && messages[0].role === "system" && (
+            {messages.length === 1 && messages[0].role === "assistant" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto mt-8">
                 <Suggestion
                   title="What are the advantages"

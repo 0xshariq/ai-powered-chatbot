@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, ChevronDown, Lock } from "lucide-react"
+import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
@@ -343,27 +343,9 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-full bg-black text-white" ref={chatContainerRef}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-2 border-b border-gray-800">
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" className="text-white border-gray-700 bg-transparent hover:bg-gray-800">
-            <span className="mr-2">Chat model</span>
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" className="text-white border-gray-700 bg-transparent hover:bg-gray-800">
-            <Lock className="h-4 w-4 mr-2" />
-            <span className="mr-2">Private</span>
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </div>
-        <Button variant="outline" className="text-white border-gray-700 bg-transparent hover:bg-gray-800">
-          Deploy with Vercel
-        </Button>
-      </div>
-
-      {/* Messages area - fixed height, scrollable */}
+      {/* No header needed here as it's in the layout */}
       <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full py-8 px-4">
+        <ScrollArea className="h-full py-4 px-4">
           <div className="max-w-3xl mx-auto space-y-8 pb-20">
             {messages.length > 0 ? (
               messages.map((message, index) => (

@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
-import Link from "next/link"
 
 type GenerationType = "text" | "image" | "video"
 type FeedbackType = "liked" | "disliked" | null

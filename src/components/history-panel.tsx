@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -16,19 +18,19 @@ export interface ChatHistory {
 }
 
 interface HistoryPanelProps {
-  history: ChatHistory[];
-  onSelectChat: (id: string) => void;
-  onDeleteChat: (id: string) => void;
-  onNewChat: () => void;
-  currentChatId: string;
+  history?: ChatHistory[]
+  onSelectChat?: (id: string) => void
+  onDeleteChat?: (id: string) => void
+  onNewChat?: () => void
+  currentChatId?: string
 }
 
 export function HistoryPanel({
-  history,
-  onSelectChat,
-  onDeleteChat,
-  onNewChat,
-  currentChatId,
+  history = [],
+  onSelectChat = () => {},
+  onDeleteChat = () => {},
+  onNewChat = () => {},
+  currentChatId = "",
 }: HistoryPanelProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>(history)
@@ -47,29 +49,37 @@ export function HistoryPanel({
   }, [])
 
   useEffect(() => {
-    localStorage.setItem("chatHistory", JSON.stringify(chatHistory))
+    if (chatHistory.length > 0) {
+      localStorage.setItem("chatHistory", JSON.stringify(chatHistory))
+    }
   }, [chatHistory])
 
   useEffect(() => {
-    localStorage.setItem("currentChatId", currentChatIdState)
+    if (currentChatIdState) {
+      localStorage.setItem("currentChatId", currentChatIdState)
+    }
   }, [currentChatIdState])
 
   // Sync with props
   useEffect(() => {
-    setChatHistory(history)
+    if (history.length > 0) {
+      setChatHistory(history)
+    }
   }, [history])
 
   useEffect(() => {
-    setCurrentChatId(currentChatId)
+    if (currentChatId) {
+      setCurrentChatId(currentChatId)
+    }
   }, [currentChatId])
 
   // Event listener for chat updates
   useEffect(() => {
     const handleChatUpdate = (e: CustomEvent) => {
       const { chatId, title, preview, timestamp } = e.detail
-      
-      setChatHistory(prev => {
-        const existingIndex = prev.findIndex(chat => chat.id === chatId)
+
+      setChatHistory((prev) => {
+        const existingIndex = prev.findIndex((chat) => chat.id === chatId)
         if (existingIndex >= 0) {
           const updated = [...prev]
           updated[existingIndex] = { ...updated[existingIndex], title, preview, timestamp }
@@ -77,7 +87,7 @@ export function HistoryPanel({
         }
         return [...prev, { id: chatId, title, preview, timestamp }]
       })
-      
+
       setCurrentChatId(chatId)
     }
 
@@ -91,11 +101,23 @@ export function HistoryPanel({
     window.dispatchEvent(new CustomEvent("selectChat", { detail: { chatId: id } }))
   }
 
-  const handleDeleteChat = (id: string) => {
-    setChatHistory(prev => prev.filter(chat => chat.id !== id))
+  const handleDeleteChat = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
     onDeleteChat(id)
-    if (currentChatId === id) {
+    if (currentChatIdState === id) {
       window.dispatchEvent(new CustomEvent("newChat"))
+    }
+  }
+
+  const handleKeyDelete = (id: string, e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.stopPropagation()
+      setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
+      onDeleteChat(id)
+      if (currentChatIdState === id) {
+        window.dispatchEvent(new CustomEvent("newChat"))
+      }
     }
   }
 
@@ -106,9 +128,17 @@ export function HistoryPanel({
     window.dispatchEvent(new CustomEvent("newChat"))
   }
 
-  const filteredHistory = chatHistory.filter(chat =>
-    chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.preview.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleKeySelect = (id: string, e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      handleSelectChat(id)
+    }
+  }
+
+  const filteredHistory = chatHistory.filter(
+    (chat) =>
+      chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      chat.preview.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (
@@ -122,6 +152,7 @@ export function HistoryPanel({
           variant="ghost"
           size="sm"
           onClick={handleNewChat}
+          onKeyUp={(e) => e.key === "Enter" && handleNewChat()}
           className="text-gray-400 hover:text-white hover:bg-gray-800"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -130,40 +161,42 @@ export function HistoryPanel({
       </div>
 
       <div className="p-4">
-        <div className="relative mb-4">
+        <div className="relative mb-4 w-full">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
           <Input
             type="search"
             placeholder="Search history..."
-            className="pl-8 bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-gray-600"
+            className="pl-8 w-full bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-gray-600"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <ScrollArea className="h-[calc(100vh-180px)]">
+        <ScrollArea className="h-[calc(100vh-180px)] md:h-[calc(100vh-160px)]">
           <div className="space-y-2">
             {filteredHistory.length > 0 ? (
-              filteredHistory.map(chat => (
+              filteredHistory.map((chat) => (
                 <Button
                   key={chat.id}
+                  type="button"
                   className={cn(
-                    "w-full p-3 rounded-md cursor-pointer group",
-                    "hover:bg-gray-800 transition-colors text-left",
-                    currentChatIdState === chat.id && "bg-gray-800"
+                    "w-full p-3 rounded-md text-left cursor-pointer group hover:bg-gray-800 transition-colors",
+                    currentChatIdState === chat.id && "bg-gray-800",
                   )}
                   onClick={() => handleSelectChat(chat.id)}
+                  onKeyDown={(e) => handleKeySelect(chat.id, e)}
+                  aria-pressed={currentChatIdState === chat.id}
                 >
                   <div className="flex justify-between items-start">
                     <div className="font-medium truncate text-white">{chat.title}</div>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-white hover:bg-gray-700"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteChat(chat.id)
-                      }}
+                      onClick={(e) => handleDeleteChat(chat.id, e)}
+                      onKeyDown={(e) => handleKeyDelete(chat.id, e)}
+                      aria-label={`Delete chat ${chat.title}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -183,3 +216,4 @@ export function HistoryPanel({
     </div>
   )
 }
+

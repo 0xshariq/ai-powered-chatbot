@@ -11,13 +11,14 @@ import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
+import { CodeBlock } from "@/components/code-block"
 
 type GenerationType = "text" | "image" | "video"
 type FeedbackType = "liked" | "disliked" | null
 
 interface Message {
   id: string
-  role: "assistant" | "user" 
+  role: "assistant" | "user"
   content: string
   timestamp: string
   type?: GenerationType
@@ -25,6 +26,10 @@ interface Message {
   fileType?: string
   fileName?: string
   feedback?: FeedbackType
+  codeBlocks?: Array<{
+    language: string
+    code: string
+  }>
 }
 
 interface SuggestionProps {
@@ -34,18 +39,20 @@ interface SuggestionProps {
 }
 
 const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
-  <Button
+  <button
+    type="button"
     onClick={onClick}
-    className="text-left p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+    onKeyUp={(e) => e.key === "Enter" && onClick()}
+    className="text-left p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors w-full"
   >
     <h3 className="font-medium mb-1">{title}</h3>
     <p className="text-sm text-muted-foreground">{description}</p>
-  </Button>
+  </button>
 )
 
 export default function ChatInterface() {
   const [input, setInput] = useState("")
-  const [generationType] = useState<GenerationType>("text")
+  const [, setGenerationType] = useState<GenerationType>("text")
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [currentChatId, setCurrentChatId] = useState<string>(uuidv4())
@@ -55,21 +62,16 @@ export default function ChatInterface() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  // Scroll to bottom whenever messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
   }, [])
 
-  // Listen for chat selection events from the HistoryPanel
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
       const { chatId } = e.detail
       setCurrentChatId(chatId)
-
-      // In a real app, you would load the messages for this chat from a database
-      // For now, we'll just simulate it with placeholder messages
       setMessages([
         {
           id: uuidv4(),
@@ -103,22 +105,15 @@ export default function ChatInterface() {
     }
   }, [])
 
-  // Save chat to history when messages change
   useEffect(() => {
     if (messages.length > 0) {
-      // Get the last assistant message for the preview
       const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
-
-      // Generate a title from the first user message
       const title =
         messages[0]?.role === "user"
           ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
           : "New Chat"
-
-      // Create preview from the last exchange
       const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
 
-      // Update history via custom event
       window.dispatchEvent(
         new CustomEvent("chatUpdate", {
           detail: {
@@ -141,7 +136,6 @@ export default function ChatInterface() {
     setMessages((prevMessages) =>
       prevMessages.map((msg) => {
         if (msg.id === messageId) {
-          // Toggle feedback if clicking the same button
           const newFeedback = msg.feedback === feedbackType ? null : feedbackType
           return { ...msg, feedback: newFeedback }
         }
@@ -164,26 +158,104 @@ export default function ChatInterface() {
     }
   }
 
+  const detectCodeBlocks = (text: string) => {
+    const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
+    const codeBlocks = []
+    const match = codeBlockRegex.exec(text)
+    while (match !== null) {
+      codeBlocks.push({
+        language: match[1] || "text",
+        code: match[2].trim(),
+      })
+    }
+    return codeBlocks
+  }
+
+  const formatMessageContent = (message: Message) => {
+    if (!message.codeBlocks || message.codeBlocks.length === 0) {
+      return <p className="whitespace-pre-wrap">{message.content}</p>
+    }
+
+    const parts = []
+    let lastIndex = 0
+    const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
+    const match = codeBlockRegex.exec(message.content)
+    while (match !== null) {
+      if (match.index > lastIndex) {
+        parts.push(
+          <p key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+            {message.content.substring(lastIndex, match.index)}
+          </p>,
+        )
+      }
+
+      const language = match[1] || "text"
+      const code = match[2].trim()
+      parts.push(<CodeBlock key={`code-${match.index}`} language={language} code={code} />)
+
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < message.content.length) {
+      parts.push(
+        <p key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+          {message.content.substring(lastIndex)}
+        </p>,
+      )
+    }
+
+    return <>{parts}</>
+  }
+
+  const detectGenerationType = (input: string) => {
+    const lowerInput = input.toLowerCase()
+
+    if (
+      lowerInput.includes("generate image") ||
+      lowerInput.includes("create image") ||
+      lowerInput.includes("create an image") ||
+      lowerInput.includes("generate an image") ||
+      lowerInput.includes("make an image")
+    ) {
+      return "image"
+    }
+
+    if (
+      lowerInput.includes("generate video") ||
+      lowerInput.includes("create video") ||
+      lowerInput.includes("create a video") ||
+      lowerInput.includes("generate a video") ||
+      lowerInput.includes("make a video")
+    ) {
+      return "video"
+    }
+
+    return "text"
+  }
+
   const handleSubmit = async () => {
     if (!input.trim() || isLoading) return
 
     const currentInput = input
     const messageId = uuidv4()
-    setInput("") // Clear input immediately after submission
+    setInput("")
+
+    const detectedType = detectGenerationType(currentInput)
+    setGenerationType(detectedType)
 
     const userMessage: Message = {
       id: messageId,
       role: "user",
       content: currentInput,
       timestamp: new Date().toLocaleTimeString(),
-      type: generationType,
+      type: detectedType,
     }
 
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
 
     try {
-      const endpoint = `/api/generate${generationType.charAt(0).toUpperCase() + generationType.slice(1)}`
+      const endpoint = `/api/generate${detectedType.charAt(0).toUpperCase() + detectedType.slice(1)}`
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,6 +265,8 @@ export default function ChatInterface() {
       if (!response.ok) throw new Error("Failed to generate response")
 
       const data = await response.json()
+      const codeBlocks = detectCodeBlocks(data.text || "")
+
       setMessages((prev) => [
         ...prev,
         {
@@ -200,8 +274,9 @@ export default function ChatInterface() {
           role: "assistant",
           content: data.text || "Generated content",
           timestamp: new Date().toLocaleTimeString(),
-          type: generationType,
+          type: detectedType,
           mediaUrl: data.mediaUrl,
+          codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined,
         },
       ])
     } catch (error) {
@@ -218,7 +293,6 @@ export default function ChatInterface() {
       ])
     } finally {
       setIsLoading(false)
-      // Focus the textarea after submission
       setTimeout(() => {
         textareaRef.current?.focus()
       }, 0)
@@ -252,7 +326,6 @@ export default function ChatInterface() {
 
       const data = await response.json()
 
-      // Add file message to chat
       const fileMessageId = uuidv4()
       setMessages((prev) => [
         ...prev,
@@ -268,12 +341,10 @@ export default function ChatInterface() {
         },
       ])
 
-      // Use the correct toast API from sonner
       toast("File uploaded", {
         description: `${data.fileName} has been uploaded successfully.`,
       })
 
-      // Analyze the file with AI
       try {
         const analysisResponse = await fetch("/api/analyze", {
           method: "POST",
@@ -309,7 +380,6 @@ export default function ChatInterface() {
       })
     } finally {
       setIsUploading(false)
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
@@ -318,7 +388,6 @@ export default function ChatInterface() {
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion)
-    // Focus the textarea after setting the input
     setTimeout(() => {
       textareaRef.current?.focus()
     }, 0)
@@ -326,110 +395,116 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-full bg-black text-white" ref={chatContainerRef}>
-      {/* No header needed here as it's in the layout */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full py-4 px-4">
-          <div className="max-w-3xl mx-auto space-y-8 pb-20">
+          <div className="w-full max-w-3xl mx-auto space-y-8 pb-20 px-4">
             {messages.length > 0 ? (
               messages.map((message, index) => (
-                <div
-                  key={message.id || `${message.timestamp}-${index}`}
-                  className="flex flex-col"
-                >
+                <div key={message.id || `${message.timestamp}-${index}`} className="flex flex-col">
                   <div
-                  className={cn(
-                    "max-w-3xl rounded-lg p-4",
-                    message.role === "user" ? "bg-gray-800" : "bg-transparent",
-                  )}
+                    className={cn(
+                      "max-w-3xl rounded-lg p-4",
+                      message.role === "user" ? "bg-gray-800" : "bg-transparent",
+                    )}
                   >
-                  {message.type === "image" && message.mediaUrl ? (
-                    <div className="space-y-3">
-                    <div className="relative w-full aspect-square max-w-[600px]">
-                      <Image
-                      src={message.mediaUrl || "/placeholder.svg"}
-                      alt={`Generated image for: ${message.content}`}
-                      fill
-                      className="rounded-md object-cover"
-                      sizes="(max-width: 768px) 100vw, 600px"
-                      priority
-                      />
-                    </div>
-                    <p className="text-sm text-gray-400 mt-2">{message.content}</p>
-                    </div>
-                  ) : message.type === "video" && message.mediaUrl ? (
-                    <div className="space-y-3">
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    <video
-                      src={message.mediaUrl}
-                      controls
-                      className="rounded-md max-w-full max-h-[300px]"
-                      aria-label={`Generated video for prompt: ${message.content}`}
-                    >
-                      <track kind="captions" srcLang="en" src="/path-to-captions.vtt" label="English" default />
-                    </video>
-                    </div>
-                  ) : message.fileType?.startsWith("image/") && message.mediaUrl ? (
-                    <div className="space-y-3">
-                    <div className="relative w-full aspect-square max-w-[600px]">
-                      <Image
-                      src={message.mediaUrl || "/placeholder.svg"}
-                      alt={`Uploaded image: ${message.fileName || "file"}`}
-                      fill
-                      className="rounded-md object-cover"
-                      sizes="(max-width: 768px) 100vw, 600px"
-                      priority
-                      />
-                    </div>
-                    <p className="text-sm text-gray-400 mt-2">{message.content}</p>
-                    </div>
-                  ) : message.fileType && message.mediaUrl ? (
-                    <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <File className="h-5 w-5" />
-                      <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                      {message.fileName || "Download file"}
-                      </a>
-                    </div>
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                  )}
+                    {message.type === "image" && message.mediaUrl ? (
+                      <div className="space-y-3">
+                        <div className="relative w-full aspect-square max-w-[600px] mx-auto">
+                          <Image
+                            src={message.mediaUrl || "/placeholder.svg"}
+                            alt={`Generated image for: ${message.content}`}
+                            fill
+                            className="rounded-md object-cover"
+                            sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 600px"
+                            priority
+                          />
+                        </div>
+                        <p className="text-sm text-gray-400 mt-2">{message.content}</p>
+                      </div>
+                    ) : message.type === "video" && message.mediaUrl ? (
+                      <div className="space-y-3">
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                        <video
+                          src={message.mediaUrl}
+                          controls
+                          className="rounded-md w-full max-w-full max-h-[300px] mx-auto"
+                          aria-label={`Generated video for prompt: ${message.content}`}
+                        >
+                          <track kind="captions" srcLang="en" src="/path-to-captions.vtt" label="English" default />
+                        </video>
+                      </div>
+                    ) : message.fileType?.startsWith("image/") && message.mediaUrl ? (
+                      <div className="space-y-3">
+                        <div className="relative w-full aspect-square max-w-[600px]">
+                          <Image
+                            src={message.mediaUrl || "/placeholder.svg"}
+                            alt={`Uploaded image: ${message.fileName || "file"}`}
+                            fill
+                            className="rounded-md object-cover"
+                            sizes="(max-width: 768px) 100vw, 600px"
+                            priority
+                          />
+                        </div>
+                        <p className="text-sm text-gray-400 mt-2">{message.content}</p>
+                      </div>
+                    ) : message.fileType && message.mediaUrl ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <File className="h-5 w-5" />
+                          <a href={message.mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                            {message.fileName || "Download file"}
+                          </a>
+                        </div>
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                      </div>
+                    ) : message.codeBlocks && message.codeBlocks.length > 0 ? (
+                      formatMessageContent(message)
+                    ) : (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    )}
 
-                  {message.role === "assistant" && (
-                    <div className="flex items-center gap-2 mt-4 text-gray-400">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full hover:bg-gray-800"
-                      onClick={() => handleCopy(message.content)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={message.feedback === "liked" ? "default" : "ghost"}
-                      size="icon"
-                      className={cn(
-                      "h-8 w-8 rounded-full hover:bg-gray-800",
-                      message.feedback === "liked" && "bg-green-600 hover:bg-green-700",
-                      )}
-                      onClick={() => handleFeedback(message.id, "liked")}
-                    >
-                      <ThumbsUp className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={message.feedback === "disliked" ? "default" : "ghost"}
-                      size="icon"
-                      className={cn(
-                      "h-8 w-8 rounded-full hover:bg-gray-800",
-                      message.feedback === "disliked" && "bg-red-600 hover:bg-red-700",
-                      )}
-                      onClick={() => handleFeedback(message.id, "disliked")}
-                    >
-                      <ThumbsDown className="h-4 w-4" />
-                    </Button>
-                    </div>
-                  )}
+                    {message.role === "assistant" && (
+                      <div className="flex items-center gap-2 mt-4 text-gray-400">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-full hover:bg-gray-800"
+                          onClick={() => handleCopy(message.content)}
+                          onKeyUp={(e) => e.key === "Enter" && handleCopy(message.content)}
+                          aria-label="Copy message"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant={message.feedback === "liked" ? "default" : "ghost"}
+                          size="icon"
+                          className={cn(
+                            "h-8 w-8 rounded-full hover:bg-gray-800",
+                            message.feedback === "liked" && "bg-green-600 hover:bg-green-700",
+                          )}
+                          onClick={() => handleFeedback(message.id, "liked")}
+                          onKeyUp={(e) => e.key === "Enter" && handleFeedback(message.id, "liked")}
+                          aria-label="Like message"
+                          aria-pressed={message.feedback === "liked"}
+                        >
+                          <ThumbsUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant={message.feedback === "disliked" ? "default" : "ghost"}
+                          size="icon"
+                          className={cn(
+                            "h-8 w-8 rounded-full hover:bg-gray-800",
+                            message.feedback === "disliked" && "bg-red-600 hover:bg-red-700",
+                          )}
+                          onClick={() => handleFeedback(message.id, "disliked")}
+                          onKeyUp={(e) => e.key === "Enter" && handleFeedback(message.id, "disliked")}
+                          aria-label="Dislike message"
+                          aria-pressed={message.feedback === "disliked"}
+                        >
+                          <ThumbsDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -442,6 +517,29 @@ export default function ChatInterface() {
                 <p className="text-gray-400 max-w-md">
                   Ask me anything or select a generation type to create text, images, or videos.
                 </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-3xl mx-auto mt-8 px-4">
+                  <Suggestion
+                    title="What are the advantages"
+                    description="of using Next.js?"
+                    onClick={() => handleSuggestionClick("What are the advantages of using Next.js?")}
+                  />
+                  <Suggestion
+                    title="Write code to"
+                    description="demonstrate dijkstra's algorithm"
+                    onClick={() => handleSuggestionClick("Write code to demonstrate dijkstra's algorithm")}
+                  />
+                  <Suggestion
+                    title="Generate an image"
+                    description="of a futuristic city"
+                    onClick={() => handleSuggestionClick("Generate an image of a futuristic city")}
+                  />
+                  <Suggestion
+                    title="Generate a code"
+                    description="for a simple todo app"
+                    onClick={() => handleSuggestionClick("Generate a code for a simple todo app")}
+                  />
+                </div>
               </div>
             )}
 
@@ -463,40 +561,13 @@ export default function ChatInterface() {
               </div>
             )}
 
-            {/* Suggestions */}
-            {messages.length === 1 && messages[0].role === "assistant" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto mt-8">
-                <Suggestion
-                  title="What are the advantages"
-                  description="of using Next.js?"
-                  onClick={() => handleSuggestionClick("What are the advantages of using Next.js?")}
-                />
-                <Suggestion
-                  title="Write code to"
-                  description="demonstrate dijkstra's algorithm"
-                  onClick={() => handleSuggestionClick("Write code to demonstrate dijkstra's algorithm")}
-                />
-                <Suggestion
-                  title="Help me write an essay"
-                  description="about silicon valley"
-                  onClick={() => handleSuggestionClick("Help me write an essay about silicon valley")}
-                />
-                <Suggestion
-                  title="What is the weather"
-                  description="in San Francisco?"
-                  onClick={() => handleSuggestionClick("What is the weather in San Francisco?")}
-                />
-              </div>
-            )}
-
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
 
-      {/* Input area - fixed at bottom */}
-      <div className="p-4 border-t border-gray-800 bg-black fixed bottom-0 left-0 right-0">
-        <div className="max-w-3xl mx-auto">
+      <div className="p-2 sm:p-4 border-t border-gray-800 bg-black fixed bottom-0 left-0 right-0">
+        <div className="max-w-3xl mx-auto w-full px-2">
           <div className="relative">
             <Textarea
               ref={textareaRef}
@@ -504,32 +575,34 @@ export default function ChatInterface() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="min-h-[44px] max-h-32 pr-10 resize-none bg-gray-900 border-gray-700 rounded-full pl-4 py-3 text-white"
+              className="min-h-[44px] max-h-32 pr-16 resize-none bg-gray-900 border-gray-700 rounded-full pl-4 py-3 text-white w-full"
               rows={1}
             />
             <div className="absolute right-2 bottom-1.5 flex items-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full hover:bg-gray-800 mr-1"
+              <button
+                type="button"
+                className="h-8 w-8 rounded-full hover:bg-gray-800 mr-1 flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-50"
                 onClick={() => fileInputRef.current?.click()}
+                onKeyUp={(e) => e.key === "Enter" && fileInputRef.current?.click()}
                 disabled={isUploading}
+                aria-label="Upload file"
               >
                 {isUploading ? (
                   <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <Paperclip className="h-4 w-4" />
                 )}
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 rounded-full hover:bg-gray-800"
+              </button>
+              <button
+                type="button"
+                className="h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-50"
                 onClick={handleSubmit}
+                onKeyUp={(e) => e.key === "Enter" && handleSubmit()}
                 disabled={isLoading || !input.trim()}
+                aria-label="Send message"
               >
                 <Send className="h-4 w-4" />
-              </Button>
+              </button>
             </div>
             <input
               type="file"
@@ -545,4 +618,3 @@ export default function ChatInterface() {
     </div>
   )
 }
-

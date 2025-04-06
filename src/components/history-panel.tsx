@@ -156,7 +156,7 @@ export function HistoryPanel({
           className="text-gray-400 hover:text-white hover:bg-gray-800"
         >
           <Plus className="h-4 w-4 mr-2" />
-          New Chat
+          <span className="hidden sm:inline">New Chat</span>
         </Button>
       </div>
 
@@ -176,34 +176,32 @@ export function HistoryPanel({
           <div className="space-y-2">
             {filteredHistory.length > 0 ? (
               filteredHistory.map((chat) => (
-                <Button
+                <button
                   key={chat.id}
                   type="button"
                   className={cn(
-                    "w-full p-3 rounded-md text-left cursor-pointer group hover:bg-gray-800 transition-colors",
+                    "w-full p-3 rounded-md text-left cursor-pointer group hover:bg-gray-800 transition-colors flex flex-col",
                     currentChatIdState === chat.id && "bg-gray-800",
                   )}
                   onClick={() => handleSelectChat(chat.id)}
                   onKeyDown={(e) => handleKeySelect(chat.id, e)}
                   aria-pressed={currentChatIdState === chat.id}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="font-medium truncate text-white">{chat.title}</div>
-                    <Button
+                  <div className="flex justify-between items-start w-full">
+                    <div className="font-medium truncate text-white flex-1">{chat.title}</div>
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-white hover:bg-gray-700"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-white hover:bg-gray-700 rounded flex items-center justify-center"
                       onClick={(e) => handleDeleteChat(chat.id, e)}
                       onKeyDown={(e) => handleKeyDelete(chat.id, e)}
                       aria-label={`Delete chat ${chat.title}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    </button>
                   </div>
                   <div className="text-sm text-gray-400 truncate mt-1">{chat.preview}</div>
                   <div className="text-xs text-gray-500 mt-2">{chat.timestamp}</div>
-                </Button>
+                </button>
               ))
             ) : (
               <div className="text-center py-8 text-gray-400">

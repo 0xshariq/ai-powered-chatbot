@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip } from "lucide-react"
@@ -52,6 +51,7 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
 
 export default function ChatInterface() {
   const [input, setInput] = useState("")
+  // Tracks the current generation type for API calls
   const [, setGenerationType] = useState<GenerationType>("text")
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -62,16 +62,21 @@ export default function ChatInterface() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
+  // Scroll to bottom whenever messages change
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
   }, [])
 
+  // Listen for chat selection events from the HistoryPanel
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
       const { chatId } = e.detail
       setCurrentChatId(chatId)
+
+      // In a real app, you would load the messages for this chat from a database
+      // For now, we'll just simulate it with placeholder messages
       setMessages([
         {
           id: uuidv4(),
@@ -105,15 +110,22 @@ export default function ChatInterface() {
     }
   }, [])
 
+  // Save chat to history when messages change
   useEffect(() => {
     if (messages.length > 0) {
+      // Get the last assistant message for the preview
       const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
+
+      // Generate a title from the first user message
       const title =
         messages[0]?.role === "user"
           ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
           : "New Chat"
+
+      // Create preview from the last exchange
       const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
 
+      // Update history via custom event
       window.dispatchEvent(
         new CustomEvent("chatUpdate", {
           detail: {
@@ -136,6 +148,7 @@ export default function ChatInterface() {
     setMessages((prevMessages) =>
       prevMessages.map((msg) => {
         if (msg.id === messageId) {
+          // Toggle feedback if clicking the same button
           const newFeedback = msg.feedback === feedbackType ? null : feedbackType
           return { ...msg, feedback: newFeedback }
         }
@@ -161,26 +174,35 @@ export default function ChatInterface() {
   const detectCodeBlocks = (text: string) => {
     const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
     const codeBlocks = []
-    const match = codeBlockRegex.exec(text)
+
+    // Fix: Avoid assignment in expression
+    let match = codeBlockRegex.exec(text)
     while (match !== null) {
       codeBlocks.push({
         language: match[1] || "text",
         code: match[2].trim(),
       })
+      match = codeBlockRegex.exec(text)
     }
+
     return codeBlocks
   }
 
+  // Format message content with code blocks
   const formatMessageContent = (message: Message) => {
     if (!message.codeBlocks || message.codeBlocks.length === 0) {
       return <p className="whitespace-pre-wrap">{message.content}</p>
     }
 
+    // Split content by code blocks
     const parts = []
     let lastIndex = 0
     const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
-    const match = codeBlockRegex.exec(message.content)
+
+    // Fix: Avoid assignment in expression
+    let match = codeBlockRegex.exec(message.content)
     while (match !== null) {
+      // Add text before code block
       if (match.index > lastIndex) {
         parts.push(
           <p key={`text-${lastIndex}`} className="whitespace-pre-wrap">
@@ -189,13 +211,16 @@ export default function ChatInterface() {
         )
       }
 
+      // Add code block
       const language = match[1] || "text"
       const code = match[2].trim()
       parts.push(<CodeBlock key={`code-${match.index}`} language={language} code={code} />)
 
       lastIndex = match.index + match[0].length
+      match = codeBlockRegex.exec(message.content)
     }
 
+    // Add remaining text after last code block
     if (lastIndex < message.content.length) {
       parts.push(
         <p key={`text-${lastIndex}`} className="whitespace-pre-wrap">
@@ -207,6 +232,7 @@ export default function ChatInterface() {
     return <>{parts}</>
   }
 
+  // Detect generation type from input
   const detectGenerationType = (input: string) => {
     const lowerInput = input.toLowerCase()
 
@@ -238,8 +264,9 @@ export default function ChatInterface() {
 
     const currentInput = input
     const messageId = uuidv4()
-    setInput("")
+    setInput("") // Clear input immediately after submission
 
+    // Detect generation type from input
     const detectedType = detectGenerationType(currentInput)
     setGenerationType(detectedType)
 
@@ -265,6 +292,8 @@ export default function ChatInterface() {
       if (!response.ok) throw new Error("Failed to generate response")
 
       const data = await response.json()
+
+      // Detect code blocks in the response
       const codeBlocks = detectCodeBlocks(data.text || "")
 
       setMessages((prev) => [
@@ -293,6 +322,7 @@ export default function ChatInterface() {
       ])
     } finally {
       setIsLoading(false)
+      // Focus the textarea after submission
       setTimeout(() => {
         textareaRef.current?.focus()
       }, 0)
@@ -314,18 +344,22 @@ export default function ChatInterface() {
     setIsUploading(true)
 
     try {
+      // Create FormData and append file
       const formData = new FormData()
       formData.append("file", file)
+      formData.append("prompt", "Analyze this file and provide insights")
 
-      const response = await fetch("/api/upload", {
+      // Send directly to analyzeFile endpoint
+      const response = await fetch("/api/analyzeFile", {
         method: "POST",
         body: formData,
       })
 
-      if (!response.ok) throw new Error("Upload failed")
+      if (!response.ok) throw new Error("Upload and analysis failed")
 
       const data = await response.json()
 
+      // Add file message to chat
       const fileMessageId = uuidv4()
       setMessages((prev) => [
         ...prev,
@@ -335,51 +369,36 @@ export default function ChatInterface() {
           content: `Uploaded file: ${data.fileName}`,
           timestamp: new Date().toLocaleTimeString(),
           type: data.fileType.startsWith("image/") ? "image" : "text",
-          mediaUrl: data.fileUrl,
+          mediaUrl: data.mediaUrl,
           fileType: data.fileType,
           fileName: data.fileName,
         },
       ])
 
+      // Add AI response
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: uuidv4(),
+          role: "assistant",
+          content: data.text,
+          timestamp: new Date().toLocaleTimeString(),
+          type: "text",
+        },
+      ])
+
+      // Use the correct toast API from sonner
       toast("File uploaded", {
-        description: `${data.fileName} has been uploaded successfully.`,
+        description: `${data.fileName} has been uploaded and analyzed.`,
       })
-
-      try {
-        const analysisResponse = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileUrl: data.fileUrl,
-            fileName: data.fileName,
-            fileType: data.fileType,
-            prompt: "Analyze this file and provide insights",
-          }),
-        })
-
-        if (analysisResponse.ok) {
-          const analysisData = await analysisResponse.json()
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: uuidv4(),
-              role: "assistant",
-              content: analysisData.text,
-              timestamp: new Date().toLocaleTimeString(),
-              type: "text",
-            },
-          ])
-        }
-      } catch (analysisError) {
-        console.error("Error analyzing file:", analysisError)
-      }
     } catch (error) {
-      console.error("Error uploading file:", error)
+      console.error("Error uploading and analyzing file:", error)
       toast.error("Upload failed", {
-        description: "There was an error uploading your file.",
+        description: "There was an error uploading and analyzing your file.",
       })
     } finally {
       setIsUploading(false)
+      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
@@ -388,6 +407,7 @@ export default function ChatInterface() {
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion)
+    // Focus the textarea after setting the input
     setTimeout(() => {
       textareaRef.current?.focus()
     }, 0)
@@ -396,17 +416,12 @@ export default function ChatInterface() {
   return (
     <div className="flex flex-col h-full bg-black text-white" ref={chatContainerRef}>
       <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full py-4 px-4">
-          <div className="w-full max-w-3xl mx-auto space-y-8 pb-20 px-4">
+        <ScrollArea className="h-full py-4">
+          <div className="max-w-3xl mx-auto space-y-8 pb-20 px-4 flex flex-col items-center">
             {messages.length > 0 ? (
               messages.map((message, index) => (
-                <div key={message.id || `${message.timestamp}-${index}`} className="flex flex-col">
-                  <div
-                    className={cn(
-                      "max-w-3xl rounded-lg p-4",
-                      message.role === "user" ? "bg-gray-800" : "bg-transparent",
-                    )}
-                  >
+                <div key={message.id || `${message.timestamp}-${index}`} className="w-full max-w-2xl">
+                  <div className={cn("rounded-lg p-4", message.role === "user" ? "bg-gray-800" : "bg-transparent")}>
                     {message.type === "image" && message.mediaUrl ? (
                       <div className="space-y-3">
                         <div className="relative w-full aspect-square max-w-[600px] mx-auto">
@@ -435,7 +450,7 @@ export default function ChatInterface() {
                       </div>
                     ) : message.fileType?.startsWith("image/") && message.mediaUrl ? (
                       <div className="space-y-3">
-                        <div className="relative w-full aspect-square max-w-[600px]">
+                        <div className="relative w-full aspect-square max-w-[600px] mx-auto">
                           <Image
                             src={message.mediaUrl || "/placeholder.svg"}
                             alt={`Uploaded image: ${message.fileName || "file"}`}
@@ -465,21 +480,19 @@ export default function ChatInterface() {
 
                     {message.role === "assistant" && (
                       <div className="flex items-center gap-2 mt-4 text-gray-400">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-full hover:bg-gray-800"
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center"
                           onClick={() => handleCopy(message.content)}
                           onKeyUp={(e) => e.key === "Enter" && handleCopy(message.content)}
                           aria-label="Copy message"
                         >
                           <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant={message.feedback === "liked" ? "default" : "ghost"}
-                          size="icon"
+                        </button>
+                        <button
+                          type="button"
                           className={cn(
-                            "h-8 w-8 rounded-full hover:bg-gray-800",
+                            "h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center",
                             message.feedback === "liked" && "bg-green-600 hover:bg-green-700",
                           )}
                           onClick={() => handleFeedback(message.id, "liked")}
@@ -488,12 +501,11 @@ export default function ChatInterface() {
                           aria-pressed={message.feedback === "liked"}
                         >
                           <ThumbsUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant={message.feedback === "disliked" ? "default" : "ghost"}
-                          size="icon"
+                        </button>
+                        <button
+                          type="button"
                           className={cn(
-                            "h-8 w-8 rounded-full hover:bg-gray-800",
+                            "h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center",
                             message.feedback === "disliked" && "bg-red-600 hover:bg-red-700",
                           )}
                           onClick={() => handleFeedback(message.id, "disliked")}
@@ -502,14 +514,14 @@ export default function ChatInterface() {
                           aria-pressed={message.feedback === "disliked"}
                         >
                           <ThumbsDown className="h-4 w-4" />
-                        </Button>
+                        </button>
                       </div>
                     )}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
+              <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center w-full">
                 <div className="h-16 w-16 rounded-full bg-white/10 flex items-center justify-center mb-4">
                   <MessageSquare className="h-8 w-8 text-white" />
                 </div>
@@ -518,7 +530,8 @@ export default function ChatInterface() {
                   Ask me anything or select a generation type to create text, images, or videos.
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-3xl mx-auto mt-8 px-4">
+                {/* Suggestions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto mt-8 px-4">
                   <Suggestion
                     title="What are the advantages"
                     description="of using Next.js?"
@@ -544,7 +557,7 @@ export default function ChatInterface() {
             )}
 
             {isLoading && (
-              <div className="flex justify-start">
+              <div className="flex justify-center w-full">
                 <div className="bg-gray-800 rounded-lg p-4">
                   <div className="flex space-x-2">
                     <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" />
@@ -566,12 +579,13 @@ export default function ChatInterface() {
         </ScrollArea>
       </div>
 
+      {/* Input area - fixed at bottom */}
       <div className="p-2 sm:p-4 border-t border-gray-800 bg-black fixed bottom-0 left-0 right-0">
-        <div className="max-w-3xl mx-auto w-full px-2">
+        <div className="max-w-2xl mx-auto w-full px-2">
           <div className="relative">
             <Textarea
               ref={textareaRef}
-              placeholder="Send a message..."
+              placeholder="Ask anything..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -618,3 +632,4 @@ export default function ChatInterface() {
     </div>
   )
 }
+

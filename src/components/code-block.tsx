@@ -52,7 +52,7 @@ export function CodeBlock({ language, code, showLineNumbers = true, onEdit }: Co
           )}
         </div>
       </div>
-      <pre className={cn("p-4 overflow-x-auto text-sm", showLineNumbers && "line-numbers")}>
+      <pre className={cn("p-4 overflow-x-auto text-sm font-mono", showLineNumbers && "line-numbers")}>
         <code className={`language-${language}`}>{code}</code>
       </pre>
     </div>

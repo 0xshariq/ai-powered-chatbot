@@ -92,7 +92,7 @@ export function HistoryPanelContainer() {
   }, [])
 
   return (
-    <div className="w-64 border-r bg-muted/10">
+    <div className="h-full bg-gray-900 border-r border-gray-800">
       <HistoryPanel
         history={chatHistory}
         onSelectChat={handleSelectChat}

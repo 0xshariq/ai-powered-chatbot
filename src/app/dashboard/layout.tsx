@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { HistoryPanel } from "@/components/history-panel"
+import { HistoryPanelContainer } from "@/components/history-panel-container"
 import { Navbar } from "@/components/navbar"
 
 export default function DashboardLayout({
@@ -61,21 +61,18 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden">
-      {/* Header with toggle button */}
+      {/* Navbar at the top */}
       <Navbar />
 
       {/* History Panel with slide animation */}
       <div
-        className={`fixed top-0 left-0 h-full z-10 transition-all duration-300 ease-in-out ${
-          isHistoryOpen ? "translate-x-0 w-full sm:w-72" : "-translate-x-full w-0"
+        className={`fixed top-0 left-0 h-full z-20 transition-all duration-300 ease-in-out ${
+          isHistoryOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0 md:w-72 md:relative md:block`}
+        style={{ width: isHistoryOpen ? "100%" : "0", maxWidth: "300px" }}
         data-history-panel
       >
-        <div className="h-full w-full bg-gray-900 border-r border-gray-800">
-          <div className="pt-14">
-            <HistoryPanel />
-          </div>
-        </div>
+        <HistoryPanelContainer />
       </div>
 
       {/* Main Content */}

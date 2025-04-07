@@ -143,7 +143,7 @@ export function HistoryPanel({
 
   return (
     <div className="w-full h-full flex flex-col bg-gray-900 text-white">
-      <div className="flex items-center justify-between p-4 border-b border-gray-800">
+      <div className="flex items-center justify-between p-4 border-b border-gray-800 mt-14">
         <h2 className="font-medium flex items-center">
           <Clock className="h-4 w-4 mr-2 text-gray-400" />
           <span className="text-white">Chat History</span>
@@ -156,7 +156,7 @@ export function HistoryPanel({
           className="text-gray-400 hover:text-white hover:bg-gray-800"
         >
           <Plus className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">New Chat</span>
+          <span>New Chat</span>
         </Button>
       </div>
 
@@ -172,7 +172,7 @@ export function HistoryPanel({
           />
         </div>
 
-        <ScrollArea className="h-[calc(100vh-180px)] md:h-[calc(100vh-160px)]">
+        <ScrollArea className="h-[calc(100vh-180px)]">
           <div className="space-y-2">
             {filteredHistory.length > 0 ? (
               filteredHistory.map((chat) => (

@@ -12,7 +12,6 @@ import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
 import { CodeBlock } from "@/components/code-block"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
 
 type GenerationType = "text" | "image" | "video"
 type FeedbackType = "liked" | "disliked" | null
@@ -39,16 +38,16 @@ interface SuggestionProps {
   onClick: () => void
 }
 
-const Suggestion: React.FC<SuggestionProps> = ({ title, description, onClick }) => (
-  <Button
+const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
+  <button
     type="button"
     onClick={onClick}
     onKeyUp={(e) => e.key === "Enter" && onClick()}
-    className="text-left p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors w-full"
+    className="text-left p-4 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors w-full"
   >
     <h3 className="font-medium mb-1">{title}</h3>
-    <p className="text-sm text-muted-foreground">{description}</p>
-  </Button>
+    <p className="text-sm text-gray-400">{description}</p>
+  </button>
 )
 
 export default function ChatInterface() {
@@ -178,14 +177,12 @@ export default function ChatInterface() {
     const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
     const codeBlocks = []
 
-    // Fix: Avoid assignment in expression
-    let match = codeBlockRegex.exec(text)
-    while (match !== null) {
+    const regexResult: RegExpExecArray | null = codeBlockRegex.exec(text);
+    while (regexResult !== null) {
       codeBlocks.push({
-        language: match[1] || "text",
-        code: match[2].trim(),
+        language: regexResult[1] || "text",
+        code: regexResult[2].trim(),
       })
-      match = codeBlockRegex.exec(text)
     }
 
     return codeBlocks
@@ -202,25 +199,23 @@ export default function ChatInterface() {
     let lastIndex = 0
     const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
 
-    // Fix: Avoid assignment in expression
-    let match = codeBlockRegex.exec(message.content)
-    while (match !== null) {
+    const regexResult = codeBlockRegex.exec(message.content);
+    while (regexResult !== null) {
       // Add text before code block
-      if (match.index > lastIndex) {
+      if (regexResult.index > lastIndex) {
         parts.push(
           <p key={`text-${lastIndex}`} className="whitespace-pre-wrap">
-            {message.content.substring(lastIndex, match.index)}
+            {message.content.substring(lastIndex, regexResult.index)}
           </p>,
         )
       }
 
       // Add code block
-      const language = match[1] || "text"
-      const code = match[2].trim()
-      parts.push(<CodeBlock key={`code-${match.index}`} language={language} code={code} />)
+      const language = regexResult[1] || "text"
+      const code = regexResult[2].trim()
+      parts.push(<CodeBlock key={`code-${regexResult.index}`} language={language} code={code} />)
 
-      lastIndex = match.index + match[0].length
-      match = codeBlockRegex.exec(message.content)
+      lastIndex = regexResult.index + regexResult[0].length
     }
 
     // Add remaining text after last code block

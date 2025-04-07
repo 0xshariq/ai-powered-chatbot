@@ -5,12 +5,14 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip } from "lucide-react"
+import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
 import { CodeBlock } from "@/components/code-block"
+import { Footer } from "@/components/footer"
+import { Button } from "@/components/ui/button"
 
 type GenerationType = "text" | "image" | "video"
 type FeedbackType = "liked" | "disliked" | null
@@ -37,8 +39,8 @@ interface SuggestionProps {
   onClick: () => void
 }
 
-const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
-  <button
+const Suggestion: React.FC<SuggestionProps> = ({ title, description, onClick }) => (
+  <Button
     type="button"
     onClick={onClick}
     onKeyUp={(e) => e.key === "Enter" && onClick()}
@@ -46,17 +48,18 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
   >
     <h3 className="font-medium mb-1">{title}</h3>
     <p className="text-sm text-muted-foreground">{description}</p>
-  </button>
+  </Button>
 )
 
 export default function ChatInterface() {
   const [input, setInput] = useState("")
-  // Tracks the current generation type for API calls
   const [, setGenerationType] = useState<GenerationType>("text")
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [currentChatId, setCurrentChatId] = useState<string>(uuidv4())
   const [isUploading, setIsUploading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [showFilePreview, setShowFilePreview] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -260,7 +263,13 @@ export default function ChatInterface() {
   }
 
   const handleSubmit = async () => {
-    if (!input.trim() || isLoading) return
+    if ((!input.trim() && !selectedFile) || isLoading) return
+
+    // If there's a selected file, upload it first
+    if (selectedFile) {
+      await handleFileSubmit()
+      return
+    }
 
     const currentInput = input
     const messageId = uuidv4()
@@ -336,17 +345,32 @@ export default function ChatInterface() {
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
 
     const file = files[0]
+    setSelectedFile(file)
+    setShowFilePreview(true)
+  }
+
+  const handleCancelFile = () => {
+    setSelectedFile(null)
+    setShowFilePreview(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const handleFileSubmit = async () => {
+    if (!selectedFile || isUploading) return
+
     setIsUploading(true)
 
     try {
       // Create FormData and append file
       const formData = new FormData()
-      formData.append("file", file)
+      formData.append("file", selectedFile)
       formData.append("prompt", "Analyze this file and provide insights")
 
       // Send directly to analyzeFile endpoint
@@ -398,6 +422,8 @@ export default function ChatInterface() {
       })
     } finally {
       setIsUploading(false)
+      setSelectedFile(null)
+      setShowFilePreview(false)
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
@@ -417,11 +443,22 @@ export default function ChatInterface() {
     <div className="flex flex-col h-full bg-black text-white" ref={chatContainerRef}>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full py-4">
-          <div className="max-w-3xl mx-auto space-y-8 pb-20 px-4 flex flex-col items-center">
+          <div className="max-w-3xl mx-auto space-y-8 pb-20 px-4">
             {messages.length > 0 ? (
               messages.map((message, index) => (
-                <div key={message.id || `${message.timestamp}-${index}`} className="w-full max-w-2xl">
-                  <div className={cn("rounded-lg p-4", message.role === "user" ? "bg-gray-800" : "bg-transparent")}>
+                <div
+                  key={message.id || `${message.timestamp}-${index}`}
+                  className={cn(
+                    "w-full max-w-2xl mx-auto",
+                    message.role === "user" ? "flex justify-end" : "flex justify-start",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "rounded-lg p-4 max-w-[90%]",
+                      message.role === "user" ? "bg-gray-800" : "bg-gray-900",
+                    )}
+                  >
                     {message.type === "image" && message.mediaUrl ? (
                       <div className="space-y-3">
                         <div className="relative w-full aspect-square max-w-[600px] mx-auto">
@@ -582,6 +619,36 @@ export default function ChatInterface() {
       {/* Input area - fixed at bottom */}
       <div className="p-2 sm:p-4 border-t border-gray-800 bg-black fixed bottom-0 left-0 right-0">
         <div className="max-w-2xl mx-auto w-full px-2">
+          {showFilePreview && selectedFile && (
+            <div className="mb-2 p-2 bg-gray-800 rounded-md flex items-center justify-between">
+              <div className="flex items-center">
+                <File className="h-5 w-5 mr-2 text-gray-400" />
+                <span className="text-sm truncate max-w-[200px]">{selectedFile.name}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleCancelFile}
+                  className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700"
+                  aria-label="Cancel file upload"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFileSubmit}
+                  disabled={isUploading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center"
+                >
+                  {isUploading ? (
+                    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
+                  ) : null}
+                  Upload
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="relative">
             <Textarea
               ref={textareaRef}
@@ -612,7 +679,7 @@ export default function ChatInterface() {
                 className="h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-50"
                 onClick={handleSubmit}
                 onKeyUp={(e) => e.key === "Enter" && handleSubmit()}
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || (!input.trim() && !selectedFile)}
                 aria-label="Send message"
               >
                 <Send className="h-4 w-4" />
@@ -622,11 +689,11 @@ export default function ChatInterface() {
               type="file"
               ref={fileInputRef}
               className="hidden"
-              onChange={handleFileUpload}
+              onChange={handleFileSelect}
               accept="image/*,.pdf,.doc,.docx,.txt"
             />
           </div>
-          <div className="text-xs text-center text-gray-500 mt-2">© 2025 AI Image Generator. All rights reserved.</div>
+          <Footer />
         </div>
       </div>
     </div>

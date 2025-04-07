@@ -143,7 +143,7 @@ export function HistoryPanel({
 
   return (
     <div className="w-full h-full flex flex-col bg-gray-900 text-white">
-      <div className="h-14 px-4 flex items-center justify-between border-b border-gray-800">
+      <div className="flex items-center justify-between p-4 border-b border-gray-800">
         <h2 className="font-medium flex items-center">
           <Clock className="h-4 w-4 mr-2 text-gray-400" />
           <span className="text-white">Chat History</span>

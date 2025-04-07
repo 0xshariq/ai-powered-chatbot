@@ -4,8 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { HistoryPanel } from "@/components/history-panel"
-import { Menu, X, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Navbar } from "@/components/navbar"
 
 export default function DashboardLayout({
   children,
@@ -48,49 +47,22 @@ export default function DashboardLayout({
     }
   }, [isHistoryOpen])
 
+  // Listen for toggle sidebar event
+  useEffect(() => {
+    const handleToggleSidebar = () => {
+      setIsHistoryOpen((prev) => !prev)
+    }
+
+    window.addEventListener("toggleSidebar", handleToggleSidebar)
+    return () => {
+      window.removeEventListener("toggleSidebar", handleToggleSidebar)
+    }
+  }, [])
+
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden">
       {/* Header with toggle button */}
-      <div className="fixed top-0 left-0 right-0 z-20 flex items-center p-2 bg-black border-b border-gray-800">
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-            onKeyUp={(e) => e.key === "Enter" && setIsHistoryOpen(!isHistoryOpen)}
-            className="text-white hover:bg-gray-800 flex items-center"
-            data-history-toggle
-            aria-label={isHistoryOpen ? "Close sidebar" : "Open sidebar"}
-            aria-expanded={isHistoryOpen}
-          >
-            {isHistoryOpen ? <X className="h-5 w-5 mr-2" /> : <Menu className="h-5 w-5 mr-2" />}
-            <span className="hidden sm:inline">{isHistoryOpen ? "Close Sidebar" : "Toggle Sidebar"}</span>
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-gray-800 flex items-center"
-            onClick={() => window.dispatchEvent(new CustomEvent("newChat"))}
-            onKeyUp={(e) => e.key === "Enter" && window.dispatchEvent(new CustomEvent("newChat"))}
-            aria-label="New chat"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">New Chat</span>
-          </Button>
-        </div>
-
-        <div className="ml-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-white border-gray-700 bg-transparent hover:bg-gray-800"
-            aria-label="Login"
-          >
-            Login
-          </Button>
-        </div>
-      </div>
+      <Navbar />
 
       {/* History Panel with slide animation */}
       <div

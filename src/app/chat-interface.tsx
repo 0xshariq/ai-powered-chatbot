@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
 import { CodeBlock } from "@/components/code-block"
 import { Footer } from "@/components/footer"
+import { Button } from "@/components/ui/button"
 
 type GenerationType = "text" | "image" | "video"
 type FeedbackType = "liked" | "disliked" | null
@@ -39,7 +40,7 @@ interface SuggestionProps {
 }
 
 const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
-  <button
+  <Button
     type="button"
     onClick={onClick}
     onKeyUp={(e) => e.key === "Enter" && onClick()}
@@ -47,7 +48,7 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
   >
     <h3 className="font-medium mb-1">{title}</h3>
     <p className="text-sm text-gray-400">{description}</p>
-  </button>
+  </Button>
 )
 
 export default function ChatInterface() {

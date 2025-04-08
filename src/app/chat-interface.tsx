@@ -12,9 +12,9 @@ import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
 import { CodeBlock } from "@/components/code-block"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 
-type GenerationType = "text" | "image" | "video"
+type GenerationType = "text" | "image" | "video" | "code"
 type FeedbackType = "liked" | "disliked" | null
 
 interface Message {
@@ -31,6 +31,7 @@ interface Message {
     language: string
     code: string
   }>
+  isStructured?: boolean
 }
 
 interface SuggestionProps {
@@ -40,7 +41,7 @@ interface SuggestionProps {
 }
 
 const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
-  <Button
+  <button
     type="button"
     onClick={onClick}
     onKeyUp={(e) => e.key === "Enter" && onClick()}
@@ -48,7 +49,7 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
   >
     <h3 className="font-medium mb-1">{title}</h3>
     <p className="text-sm text-gray-400">{description}</p>
-  </Button>
+  </button>
 )
 
 export default function ChatInterface() {
@@ -174,61 +175,150 @@ export default function ChatInterface() {
     }
   }
 
-  const detectCodeBlocks = (text: string) => {
-    const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
-    const codeBlocks = []
+  // Format structured text with numbered points and sections
+  const formatStructuredText = (content: string) => {
+    const parts: React.ReactNode[] = []
+    const lines = content.split("\n")
+    let currentSection: string[] = []
+    let sectionIndex = 0
 
-    const regexResult: RegExpExecArray | null = codeBlockRegex.exec(text);
-    while (regexResult !== null) {
-      codeBlocks.push({
-        language: regexResult[1] || "text",
-        code: regexResult[2].trim(),
-      })
+    for (const line of lines) {
+      // Check if this is a numbered point (e.g., "1. Something")
+      const isNumberedPoint = /^\d+\.\s+/.test(line)
+    
+      // Check if this is a heading (e.g., "Blockchain Technology:")
+      const isHeading = /^[A-Z][^:]+:/.test(line)
+    
+      if (isNumberedPoint || isHeading) {
+        // If we have accumulated content in the current section, add it
+        if (currentSection.length > 0) {
+          parts.push(
+            <div key={`section-${sectionIndex}`} className="mb-4">
+              {currentSection.map((text) => (
+                <p key={`p-${sectionIndex}-${text}`} className="whitespace-pre-wrap">
+                  {text}
+                </p>
+              ))}
+            </div>,
+          )
+          currentSection = []
+          sectionIndex++
+        }
+    
+        // Add separator if not the first item
+        if (parts.length > 0) {
+          parts.push(<Separator key={`sep-${sectionIndex}`} className="my-4 bg-gray-700" />)
+        }
+    
+        // Add the numbered point or heading with appropriate styling
+        if (isNumberedPoint) {
+          parts.push(
+            <div key={`point-${line}`} className="mb-2">
+              <p className="font-semibold">{line}</p>
+            </div>,
+          )
+        } else if (isHeading) {
+          parts.push(
+            <div key={`heading-${line}`} className="mb-2">
+              <h3 className="font-semibold text-lg">{line}</h3>
+            </div>,
+          )
+        }
+      } else if (line.trim() === "") {
+        // Empty line - if we have content, add it as a paragraph
+        if (currentSection.length > 0) {
+          parts.push(
+            <div key={`section-${sectionIndex}`} className="mb-4">
+              {currentSection.map((text) => (
+                <p key={`p-${sectionIndex}-${text}`} className="whitespace-pre-wrap">
+                  {text}
+                </p>
+              ))}
+            </div>,
+          )
+          currentSection = []
+          sectionIndex++
+        }
+      } else {
+        // Regular line - add to current section
+        currentSection.push(line)
+      }
     }
 
-    return codeBlocks
+    // Add any remaining content
+    if (currentSection.length > 0) {
+      parts.push(
+        <div key={`section-${sectionIndex}`} className="mb-4">
+          {currentSection.map((text) => (
+            <p key={`p-${sectionIndex}-${text}`} className="whitespace-pre-wrap">
+              {text}
+            </p>
+          ))}
+        </div>,
+      )
+    }
+
+    return <div className="space-y-2">{parts}</div>
   }
 
-  // Format message content with code blocks
+  // Format message content based on type and structure
   const formatMessageContent = (message: Message) => {
-    if (!message.codeBlocks || message.codeBlocks.length === 0) {
-      return <p className="whitespace-pre-wrap">{message.content}</p>
-    }
+    // For code type messages with code blocks
+    if (message.type === "code" && message.codeBlocks && message.codeBlocks.length > 0) {
+      const parts = []
+      let lastIndex = 0
+      const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
 
-    // Split content by code blocks
-    const parts = []
-    let lastIndex = 0
-    const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
-
-    const regexResult = codeBlockRegex.exec(message.content);
-    while (regexResult !== null) {
-      // Add text before code block
-      if (regexResult.index > lastIndex) {
+      // Extract text before the first code block
+      const firstCodeBlockMatch = codeBlockRegex.exec(message.content)
+      if (firstCodeBlockMatch && firstCodeBlockMatch.index > 0) {
         parts.push(
-          <p key={`text-${lastIndex}`} className="whitespace-pre-wrap">
-            {message.content.substring(lastIndex, regexResult.index)}
+          <p key="intro" className="whitespace-pre-wrap mb-4">
+            {message.content.substring(0, firstCodeBlockMatch.index)}
           </p>,
         )
       }
 
-      // Add code block
-      const language = regexResult[1] || "text"
-      const code = regexResult[2].trim()
-      parts.push(<CodeBlock key={`code-${regexResult.index}`} language={language} code={code} />)
+      // Reset regex
+      codeBlockRegex.lastIndex = 0
 
-      lastIndex = regexResult.index + regexResult[0].length
+      // Process all code blocks
+      const match: RegExpExecArray | null = codeBlockRegex.exec(message.content)
+      while (match !== null) {
+        // Add text between code blocks
+        if (match.index > lastIndex && lastIndex > 0) {
+          parts.push(
+            <p key={`text-${lastIndex}`} className="whitespace-pre-wrap my-4">
+              {message.content.substring(lastIndex, match.index)}
+            </p>,
+          )
+        }
+
+        // Add code block
+        const language = match[1] || "text"
+        const code = match[2].trim()
+        parts.push(<CodeBlock key={`code-${match.index}`} language={language} code={code} />)
+
+        lastIndex = match.index + match[0].length
+      }
+
+      // Add remaining text after last code block
+      if (lastIndex < message.content.length) {
+        parts.push(
+          <p key={`text-${lastIndex}`} className="whitespace-pre-wrap mt-4">
+            {message.content.substring(lastIndex)}
+          </p>,
+        )
+      }
+
+      return <>{parts}</>
     }
-
-    // Add remaining text after last code block
-    if (lastIndex < message.content.length) {
-      parts.push(
-        <p key={`text-${lastIndex}`} className="whitespace-pre-wrap">
-          {message.content.substring(lastIndex)}
-        </p>,
-      )
+    // For structured text responses (explanations)
+    if (message.type === "text" && message.isStructured) {
+      return formatStructuredText(message.content)
     }
-
-    return <>{parts}</>
+    // For regular text messages
+    return <p className="whitespace-pre-wrap">{message.content}</p>
   }
 
   // Detect generation type from input
@@ -253,6 +343,18 @@ export default function ChatInterface() {
       lowerInput.includes("make a video")
     ) {
       return "video"
+    }
+
+    if (
+      lowerInput.includes("write code") ||
+      lowerInput.includes("generate code") ||
+      lowerInput.includes("code for") ||
+      lowerInput.includes("implement") ||
+      lowerInput.includes("function") ||
+      lowerInput.includes("algorithm") ||
+      lowerInput.includes("program")
+    ) {
+      return "code"
     }
 
     return "text"
@@ -287,7 +389,17 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
-      const endpoint = `/api/generate${detectedType.charAt(0).toUpperCase() + detectedType.slice(1)}`
+      // Choose the appropriate endpoint based on the detected type
+      let endpoint = "/api/generateText"
+
+      if (detectedType === "image") {
+        endpoint = "/api/generateImage"
+      } else if (detectedType === "video") {
+        endpoint = "/api/generateVideo"
+      } else if (detectedType === "code") {
+        endpoint = "/api/generateCode"
+      }
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -298,9 +410,6 @@ export default function ChatInterface() {
 
       const data = await response.json()
 
-      // Detect code blocks in the response
-      const codeBlocks = detectCodeBlocks(data.text || "")
-
       setMessages((prev) => [
         ...prev,
         {
@@ -310,7 +419,8 @@ export default function ChatInterface() {
           timestamp: new Date().toLocaleTimeString(),
           type: detectedType,
           mediaUrl: data.mediaUrl,
-          codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined,
+          codeBlocks: data.codeBlocks,
+          isStructured: data.isStructured,
         },
       ])
     } catch (error) {
@@ -505,10 +615,8 @@ export default function ChatInterface() {
                         </div>
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       </div>
-                    ) : message.codeBlocks && message.codeBlocks.length > 0 ? (
-                      formatMessageContent(message)
                     ) : (
-                      <p className="whitespace-pre-wrap">{message.content}</p>
+                      formatMessageContent(message)
                     )}
 
                     {message.role === "assistant" && (
@@ -581,9 +689,9 @@ export default function ChatInterface() {
                     onClick={() => handleSuggestionClick("Generate an image of a futuristic city")}
                   />
                   <Suggestion
-                    title="Generate a code"
-                    description="for a simple todo app"
-                    onClick={() => handleSuggestionClick("Generate a code for a simple todo app")}
+                    title="Tell me about"
+                    description="artificial intelligence"
+                    onClick={() => handleSuggestionClick("Tell me about artificial intelligence")}
                   />
                 </div>
               </div>
@@ -695,4 +803,3 @@ export default function ChatInterface() {
     </div>
   )
 }
-

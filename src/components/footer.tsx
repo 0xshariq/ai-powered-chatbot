@@ -1,53 +1,22 @@
-import { Button } from "@/components/ui/button"
-import { Github, Twitter, Instagram, Linkedin } from "lucide-react"
-import Link from "next/link"
+import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="border-t py-4 px-6">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} AI Powered Chatbot. All rights reserved.
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Link href="https://github.com/0xshariq">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Github className="h-4 w-4" />
-            </Button>
-            </Link>
-            <Link href="https://x.com/Sharique_Ch">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Twitter className="h-4 w-4" />
-            </Button>
-            </Link>
-            <Link href="https://www.instagram.com/sharique1303/">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Instagram className="h-4 w-4" />
-            </Button>
-            </Link>
-            <Link href="https://www.linkedin.com/in/0xshariq/">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Linkedin className="h-4 w-4" />
-            </Button>
-            </Link>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <a href="/terms" className="hover:underline">
-              Terms
-            </a>
-            <span className="mx-2">·</span>
-            <a href="/privacy" className="hover:underline">
-              Privacy
-            </a>
-            <span className="mx-2">·</span>
-            <a href="/contact" className="hover:underline">
-              Contact
-            </a>
-          </div>
-        </div>
+    <div className="flex items-center justify-between py-2 text-xs text-gray-500">
+      <div>© {new Date().getFullYear()} AI Powered Chatbot. All rights reserved.</div>
+      <div className="flex items-center space-x-3">
+        <Link href="#" className="hover:text-white transition-colors">
+          Terms
+        </Link>
+        <span>·</span>
+        <Link href="#" className="hover:text-white transition-colors">
+          Privacy
+        </Link>
+        <span>·</span>
+        <Link href="#" className="hover:text-white transition-colors">
+          Contact
+        </Link>
       </div>
-    </footer>
+    </div>
   )
 }
-

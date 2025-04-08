@@ -1,7 +1,9 @@
 "use client"
 
-import { Menu, Plus } from "lucide-react"
+import { Menu, Plus, Github, Twitter, Instagram, Linkedin } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import Link from "next/link"
 
 export function Navbar() {
   return (
@@ -32,7 +34,22 @@ export function Navbar() {
         </Button>
       </div>
 
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center space-x-4">
+        <div className="hidden md:flex items-center space-x-2">
+          <Link href="https://github.com/0xshariq" className="text-gray-400 hover:text-white transition-colors" aria-label="Github">
+            <Github className="h-4 w-4" />
+          </Link>
+          <Link href="https://x.com/Sharique_Ch" className="text-gray-400 hover:text-white transition-colors" aria-label="Twitter">
+            <Twitter className="h-4 w-4" />
+          </Link>
+          <Link href="https://www.instagram.com/sharique1303/" className="text-gray-400 hover:text-white transition-colors" aria-label="Instagram">
+            <Instagram className="h-4 w-4" />
+          </Link>
+          <Link href="https://www.linkedin.com/in/0xshariq/" className="text-gray-400 hover:text-white transition-colors" aria-label="LinkedIn">
+            <Linkedin className="h-4 w-4" />
+          </Link>
+        </div>
+        <Separator orientation="vertical" className="h-6 bg-gray-700 hidden md:block" />
         <Button
           variant="outline"
           size="sm"
@@ -45,4 +62,3 @@ export function Navbar() {
     </div>
   )
 }
-

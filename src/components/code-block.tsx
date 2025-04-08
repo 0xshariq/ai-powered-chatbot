@@ -58,4 +58,3 @@ export function CodeBlock({ language, code, showLineNumbers = true, onEdit }: Co
     </div>
   )
 }
-

@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     try {
       // Generate image using DALL-E 3
       const response = await openai.images.generate({
-        model: "dall-e-3",
+        model: "dall-e-2",
         prompt: prompt,
         n: 1,
         size: "1024x1024", // DALL-E 3 supports 1024x1024, 1792x1024, or 1024x1792

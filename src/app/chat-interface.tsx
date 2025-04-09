@@ -13,6 +13,7 @@ import { toast } from "sonner"
 import { CodeBlock } from "@/components/code-block"
 import { Footer } from "@/components/footer"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
 
 type GenerationType = "text" | "image" | "video" | "code"
 type FeedbackType = "liked" | "disliked" | null
@@ -45,7 +46,7 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
     type="button"
     onClick={onClick}
     onKeyUp={(e) => e.key === "Enter" && onClick()}
-    className="text-left p-4 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors w-full"
+    className="text-left p-4 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors w-full hover:shadow-md animate-fadeIn"
   >
     <h3 className="font-medium mb-1">{title}</h3>
     <p className="text-sm text-gray-400">{description}</p>
@@ -65,6 +66,16 @@ export default function ChatInterface() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+
+  // Auto-resize textarea as user types
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = "auto"
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`
+    }
+  }, [])
 
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -73,31 +84,32 @@ export default function ChatInterface() {
     }
   }, [])
 
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0 && currentChatId) {
+      localStorage.setItem(`chat_messages_${currentChatId}`, JSON.stringify(messages))
+    }
+  }, [messages, currentChatId])
+
   // Listen for chat selection events from the HistoryPanel
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
-      const { chatId } = e.detail
+      const { chatId, messages: chatMessages } = e.detail
       setCurrentChatId(chatId)
 
-      // In a real app, you would load the messages for this chat from a database
-      // For now, we'll just simulate it with placeholder messages
-      setMessages([
-        {
-          id: uuidv4(),
-          role: "user",
-          content: `Selected chat ${chatId}`,
-          timestamp: new Date().toLocaleTimeString(),
-          type: "text",
-        },
-        {
-          id: uuidv4(),
-          role: "assistant",
-          content:
-            "This is a placeholder for the selected chat. In a real application, the actual chat messages would be loaded here.",
-          timestamp: new Date().toLocaleTimeString(),
-          type: "text",
-        },
-      ])
+      // Load the messages for this chat
+      if (chatMessages && chatMessages.length > 0) {
+        setMessages(chatMessages)
+      } else {
+        // Try to load from localStorage as a fallback
+        const savedMessages = localStorage.getItem(`chat_messages_${chatId}`)
+        if (savedMessages) {
+          setMessages(JSON.parse(savedMessages))
+        } else {
+          // If no messages found, create an empty chat
+          setMessages([])
+        }
+      }
     }
 
     const handleNewChat = () => {
@@ -213,13 +225,13 @@ export default function ChatInterface() {
         // Add the numbered point or heading with appropriate styling
         if (isNumberedPoint) {
           parts.push(
-            <div key={`point-${line}`} className="mb-2">
+            <div key={`point-${line}-${sectionIndex}`} className="mb-2 animate-fadeIn">
               <p className="font-semibold">{line}</p>
             </div>,
           )
         } else if (isHeading) {
           parts.push(
-            <div key={`heading-${line}`} className="mb-2">
+            <div key={`heading-${line}-${sectionIndex}`} className="mb-2 animate-fadeIn">
               <h3 className="font-semibold text-lg">{line}</h3>
             </div>,
           )
@@ -330,7 +342,9 @@ export default function ChatInterface() {
       lowerInput.includes("create image") ||
       lowerInput.includes("create an image") ||
       lowerInput.includes("generate an image") ||
-      lowerInput.includes("make an image")
+      lowerInput.includes("make an image") ||
+      lowerInput.includes("draw") ||
+      lowerInput.includes("picture of")
     ) {
       return "image"
     }
@@ -352,7 +366,9 @@ export default function ChatInterface() {
       lowerInput.includes("implement") ||
       lowerInput.includes("function") ||
       lowerInput.includes("algorithm") ||
-      lowerInput.includes("program")
+      lowerInput.includes("program") ||
+      lowerInput.includes("class") ||
+      lowerInput.includes("script")
     ) {
       return "code"
     }
@@ -372,6 +388,11 @@ export default function ChatInterface() {
     const currentInput = input
     const messageId = uuidv4()
     setInput("") // Clear input immediately after submission
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto"
+    }
 
     // Detect generation type from input
     const detectedType = detectGenerationType(currentInput)
@@ -548,7 +569,7 @@ export default function ChatInterface() {
   return (
     <div className="flex flex-col h-full bg-black text-white" ref={chatContainerRef}>
       <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full py-4">
+        <ScrollArea className="h-full py-4" ref={scrollAreaRef}>
           <div className="max-w-3xl mx-auto space-y-8 pb-20 px-4">
             {messages.length > 0 ? (
               messages.map((message, index) => (
@@ -557,6 +578,7 @@ export default function ChatInterface() {
                   className={cn(
                     "w-full max-w-2xl mx-auto",
                     message.role === "user" ? "flex justify-end" : "flex justify-start",
+                    message.role === "user" ? "user-message" : "assistant-message",
                   )}
                 >
                   <div
@@ -662,8 +684,8 @@ export default function ChatInterface() {
                 </div>
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center w-full">
-                <div className="h-16 w-16 rounded-full bg-white/10 flex items-center justify-center mb-4">
+              <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center w-full animate-fadeIn">
+                <div className="h-16 w-16 rounded-full bg-white/10 flex items-center justify-center mb-4 animate-pulse-once">
                   <MessageSquare className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-lg font-medium mb-2">How can I help you today?</h3>
@@ -698,7 +720,7 @@ export default function ChatInterface() {
             )}
 
             {isLoading && (
-              <div className="flex justify-center w-full">
+              <div className="flex justify-center w-full animate-fadeIn">
                 <div className="bg-gray-800 rounded-lg p-4">
                   <div className="flex space-x-2">
                     <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" />
@@ -721,10 +743,10 @@ export default function ChatInterface() {
       </div>
 
       {/* Input area - fixed at bottom */}
-      <div className="p-2 sm:p-4 border-t border-gray-800 bg-black fixed bottom-0 left-0 right-0">
+      <div className="p-2 sm:p-4 border-t border-gray-800 bg-black fixed bottom-0 left-0 right-0 z-10">
         <div className="max-w-2xl mx-auto w-full px-2">
           {showFilePreview && selectedFile && (
-            <div className="mb-2 p-2 bg-gray-800 rounded-md flex items-center justify-between">
+            <div className="mb-2 p-2 bg-gray-800 rounded-md flex items-center justify-between animate-fadeIn">
               <div className="flex items-center">
                 <File className="h-5 w-5 mr-2 text-gray-400" />
                 <span className="text-sm truncate max-w-[200px]">{selectedFile.name}</span>
@@ -760,7 +782,7 @@ export default function ChatInterface() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="min-h-[44px] max-h-32 pr-16 resize-none bg-gray-900 border-gray-700 rounded-full pl-4 py-3 text-white w-full"
+              className="min-h-[44px] max-h-32 pr-16 resize-none bg-gray-900 border-gray-700 rounded-full pl-4 py-3 text-white w-full overflow-hidden input-focus-animation"
               rows={1}
             />
             <div className="absolute right-2 bottom-1.5 flex items-center">
@@ -789,7 +811,7 @@ export default function ChatInterface() {
                 <Send className="h-4 w-4" />
               </button>
             </div>
-            <input
+            <Input
               type="file"
               ref={fileInputRef}
               className="hidden"

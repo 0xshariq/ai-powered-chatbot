@@ -36,12 +36,27 @@ export function HistoryPanelContainer() {
 
   const handleSelectChat = (id: string) => {
     setCurrentChatId(id)
+
+    // Load the chat messages from localStorage
+    const savedMessages = localStorage.getItem(`chat_messages_${id}`)
+
     // Dispatch event to notify ChatInterface to load this chat
-    window.dispatchEvent(new CustomEvent("selectChat", { detail: { chatId: id } }))
+    window.dispatchEvent(
+      new CustomEvent("selectChat", {
+        detail: {
+          chatId: id,
+          messages: savedMessages ? JSON.parse(savedMessages) : [],
+        },
+      }),
+    )
   }
 
   const handleDeleteChat = (id: string) => {
     setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
+
+    // Remove chat messages from localStorage
+    localStorage.removeItem(`chat_messages_${id}`)
+
     if (currentChatId === id) {
       // If the current chat is deleted, create a new chat
       window.dispatchEvent(new CustomEvent("newChat"))
@@ -103,4 +118,3 @@ export function HistoryPanelContainer() {
     </div>
   )
 }
-

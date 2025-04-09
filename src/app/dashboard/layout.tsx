@@ -59,6 +59,14 @@ export default function DashboardLayout({
     }
   }, [])
 
+  // Prevent body scrolling when the app is loaded
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [])
+
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden">
       {/* Navbar at the top */}
@@ -76,10 +84,24 @@ export default function DashboardLayout({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col pt-14 transition-all duration-300 w-full">
-        <div className="flex-1 overflow-hidden w-full">{children}</div>
+      <div className="flex-1 flex flex-col pt-14 transition-all duration-300 w-full h-full overflow-hidden">
+        <div className="flex-1 overflow-hidden w-full h-full">{children}</div>
       </div>
+
+      {/* Overlay for mobile when history panel is open */}
+      {isHistoryOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-10 md:hidden"
+          onClick={() => setIsHistoryOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              setIsHistoryOpen(false)
+            }
+          }}
+          tabIndex={0}
+          role="button"
+        />
+      )}
     </div>
   )
 }
-

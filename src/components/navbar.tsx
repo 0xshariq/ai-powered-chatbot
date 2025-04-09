@@ -14,7 +14,7 @@ export function Navbar() {
           onClick={() => window.dispatchEvent(new CustomEvent("toggleSidebar"))}
           className="text-white hover:bg-gray-700 active:bg-gray-600 transition-colors rounded-md h-9 w-9"
           data-history-toggle
-          aria-label="Toggle sidebar"
+          aria-label="History"
         >
           <Menu className="h-5 w-5" />
         </Button>

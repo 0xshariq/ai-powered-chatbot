@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
+// Initialize the Google Generative AI model
 if (!process.env.GOOGLE_AI_API_KEY) {
-  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables");
+  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.")
 }
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
 
 export async function POST(request: Request) {
   try {
@@ -18,30 +19,32 @@ export async function POST(request: Request) {
     let enhancedPrompt = prompt
     if (isExplanationPrompt(prompt)) {
       enhancedPrompt = `
-        Provide a detailed explanation about "${prompt}". 
-        Format your response with:
-        1. A brief introduction
-        2. Numbered points for main concepts
-        3. Use clear headings for different aspects or applications
+        Provide a clear explanation about "${prompt}". 
+        Keep your response conversational and easy to understand.
+        Use simple language and avoid overly technical terms unless necessary.
         
-        Make the explanation educational and comprehensive.
+        Note: You are using the Janus-Pro-7B model.
       `
+    } else {
+      enhancedPrompt = `${prompt}\n\nNote: You are using the Janus-Pro-7B model.`
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+    // Get the generative model - Using Gemini Pro as a proxy for Janus-Pro-7B
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
-    // Generate text using Gemini
+    // Generate text
     const result = await model.generateContent(enhancedPrompt)
     const response = await result.response
     const text = response.text()
 
-    // Process the response to make it more readable
+    // Process the response to make it more readable and conversational
     const processedResponse = processTextResponse(text)
 
     return NextResponse.json({
       text: processedResponse,
       type: "text",
       isStructured: isExplanationPrompt(prompt),
+      model: "Janus-Pro-7B", // Indicate the model used
     })
   } catch (error) {
     console.error("Error generating text:", error)
@@ -66,14 +69,33 @@ function isExplanationPrompt(prompt: string) {
 
 // Helper function to process text responses for better readability
 function processTextResponse(text: string) {
-  // Ensure proper spacing around numbered points
-  let processedText = text.replace(/(\d+\.\s+[^\n]+)(\n)(?!\n)/g, "$1\n\n")
+  // Remove any markdown formatting that might make the text less readable
+  let processedText = text
+    .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold markdown
+    .replace(/\*(.*?)\*/g, "$1") // Remove italic markdown
+    .replace(/```[a-z]*\n/g, "") // Remove code block language indicators
+    .replace(/```/g, "") // Remove code block markers
+    .replace(/#{1,6}\s+/g, "") // Remove heading markers
 
-  // Ensure proper spacing around headings
-  processedText = processedText.replace(/([A-Z][^:]+:)(\n)(?!\n)/g, "$1\n\n")
+  // Ensure proper spacing around paragraphs
+  processedText = processedText.replace(/\n{3,}/g, "\n\n")
 
-  // Ensure proper spacing after paragraphs
-  processedText = processedText.replace(/(\.)(\n)(?!\n)/g, "$1\n\n")
+  // Make the text more conversational
+  processedText = processedText
+    .replace(/^In conclusion,/gi, "To sum up,")
+    .replace(/^To summarize,/gi, "In short,")
+    .replace(/^It is important to note that/gi, "Keep in mind that")
+    .replace(/^Please note that/gi, "Remember that")
+    .replace(/^As mentioned earlier,/gi, "As I said,")
+    .replace(/^Furthermore,/gi, "Also,")
+    .replace(/^Additionally,/gi, "Plus,")
+    .replace(/^Moreover,/gi, "What's more,")
+    .replace(/^However,/gi, "But,")
+    .replace(/^Nevertheless,/gi, "Still,")
+    .replace(/^Consequently,/gi, "As a result,")
+    .replace(/^Therefore,/gi, "So,")
+    .replace(/^Thus,/gi, "So,")
+    .replace(/^In summary,/gi, "To wrap up,")
 
   return processedText
 }

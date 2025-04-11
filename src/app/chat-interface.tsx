@@ -5,15 +5,16 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, X } from "lucide-react"
+import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, X, Check } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
 import { CodeBlock } from "@/components/code-block"
-import { Footer } from "@/components/footer"
 import { Separator } from "@/components/ui/separator"
+import { useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 type GenerationType = "text" | "image" | "video" | "code"
 type FeedbackType = "liked" | "disliked" | null
@@ -53,12 +54,28 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
   </button>
 )
 
-export default function ChatInterface() {
+// Generate a chat ID in the format "title-randomid"
+function generateChatId(title?: string) {
+  // Create a base string with the title or default to "new-chat"
+  const baseTitle = title ? title.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').substring(0, 30) : "new-chat"
+  
+  // Generate a random string of 6-8 characters
+  const randomChars = Math.random().toString(36).substring(2, 8)
+  
+  // Combine them
+  return `${baseTitle}-${randomChars}`
+}
+
+interface ChatInterfaceProps {
+  initialChatId?: string
+}
+
+export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}) {
   const [input, setInput] = useState("")
   const [, setGenerationType] = useState<GenerationType>("text")
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const [currentChatId, setCurrentChatId] = useState<string>(uuidv4())
+  const [currentChatId, setCurrentChatId] = useState<string>(initialChatId || generateChatId())
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [showFilePreview, setShowFilePreview] = useState(false)
@@ -67,6 +84,19 @@ export default function ChatInterface() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // Load messages for the current chat ID on initial render
+  useEffect(() => {
+    if (initialChatId) {
+      setCurrentChatId(initialChatId)
+      const savedMessages = localStorage.getItem(`chat_messages_${initialChatId}`)
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages))
+      }
+    }
+  }, [initialChatId])
 
   // Auto-resize textarea as user types
   useEffect(() => {
@@ -113,8 +143,10 @@ export default function ChatInterface() {
     }
 
     const handleNewChat = () => {
+      const newChatId = generateChatId()
       setMessages([])
-      setCurrentChatId(uuidv4())
+      setCurrentChatId(newChatId)
+      router.push(`/chat/${newChatId}`)
     }
 
     window.addEventListener("selectChat", handleSelectChat as EventListener)
@@ -124,19 +156,21 @@ export default function ChatInterface() {
       window.removeEventListener("selectChat", handleSelectChat as EventListener)
       window.removeEventListener("newChat", handleNewChat)
     }
-  }, [])
+  }, [router])
 
   // Save chat to history when messages change
   useEffect(() => {
     if (messages.length > 0) {
+      // Get the first user message for the title
+      const firstUserMessage = messages.find((m) => m.role === "user")
+      
+      // Generate a title from the first user message
+      const title = firstUserMessage
+        ? firstUserMessage.content.slice(0, 30) + (firstUserMessage.content.length > 30 ? "..." : "")
+        : "New Chat"
+      
       // Get the last assistant message for the preview
       const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
-
-      // Generate a title from the first user message
-      const title =
-        messages[0]?.role === "user"
-          ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
-          : "New Chat"
 
       // Create preview from the last exchange
       const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
@@ -194,13 +228,13 @@ export default function ChatInterface() {
     let currentSection: string[] = []
     let sectionIndex = 0
 
-    for (const line of lines) {
+    lines.forEach((line, index) => {
       // Check if this is a numbered point (e.g., "1. Something")
       const isNumberedPoint = /^\d+\.\s+/.test(line)
-    
+
       // Check if this is a heading (e.g., "Blockchain Technology:")
       const isHeading = /^[A-Z][^:]+:/.test(line)
-    
+
       if (isNumberedPoint || isHeading) {
         // If we have accumulated content in the current section, add it
         if (currentSection.length > 0) {
@@ -216,22 +250,22 @@ export default function ChatInterface() {
           currentSection = []
           sectionIndex++
         }
-    
+
         // Add separator if not the first item
         if (parts.length > 0) {
-          parts.push(<Separator key={`sep-${sectionIndex}`} className="my-4 bg-gray-700" />)
+          parts.push(<Separator key={`sep-${uuidv4()}`} className="my-4 bg-gray-700" />)
         }
-    
+
         // Add the numbered point or heading with appropriate styling
         if (isNumberedPoint) {
           parts.push(
-            <div key={`point-${line}-${sectionIndex}`} className="mb-2 animate-fadeIn">
+            <div key={`point-${uuidv4()}`} className="mb-2 animate-fadeIn">
               <p className="font-semibold">{line}</p>
             </div>,
           )
         } else if (isHeading) {
           parts.push(
-            <div key={`heading-${line}-${sectionIndex}`} className="mb-2 animate-fadeIn">
+            <div key={`heading-${uuidv4()}`} className="mb-2 animate-fadeIn">
               <h3 className="font-semibold text-lg">{line}</h3>
             </div>,
           )
@@ -255,7 +289,7 @@ export default function ChatInterface() {
         // Regular line - add to current section
         currentSection.push(line)
       }
-    }
+    })
 
     // Add any remaining content
     if (currentSection.length > 0) {
@@ -279,7 +313,7 @@ export default function ChatInterface() {
     if (message.type === "code" && message.codeBlocks && message.codeBlocks.length > 0) {
       const parts = []
       let lastIndex = 0
-      const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
+      const codeBlockRegex = /\`\`\`(\w+)?\s*\n([\s\S]*?)\n\`\`\`/g
 
       // Extract text before the first code block
       const firstCodeBlockMatch = codeBlockRegex.exec(message.content)
@@ -296,7 +330,7 @@ export default function ChatInterface() {
 
       // Process all code blocks
       const match: RegExpExecArray | null = codeBlockRegex.exec(message.content)
-      while (match !== null) {
+      while ((match) !== null) {
         // Add text between code blocks
         if (match.index > lastIndex && lastIndex > 0) {
           parts.push(
@@ -408,6 +442,15 @@ export default function ChatInterface() {
 
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
+
+    // If this is the first message, update the chat ID based on the content
+    if (messages.length === 0) {
+      const newChatId = generateChatId(currentInput)
+      setCurrentChatId(newChatId)
+      
+      // Update the URL to reflect the new chat ID
+      router.push(`/chat/${newChatId}`, { scroll: false })
+    }
 
     try {
       // Choose the appropriate endpoint based on the detected type
@@ -643,7 +686,7 @@ export default function ChatInterface() {
 
                     {message.role === "assistant" && (
                       <div className="flex items-center gap-2 mt-4 text-gray-400">
-                        <button
+                        <Button
                           type="button"
                           className="h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center"
                           onClick={() => handleCopy(message.content)}
@@ -651,8 +694,8 @@ export default function ChatInterface() {
                           aria-label="Copy message"
                         >
                           <Copy className="h-4 w-4" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
                           className={cn(
                             "h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center",
@@ -664,8 +707,8 @@ export default function ChatInterface() {
                           aria-pressed={message.feedback === "liked"}
                         >
                           <ThumbsUp className="h-4 w-4" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
                           className={cn(
                             "h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center",
@@ -677,7 +720,7 @@ export default function ChatInterface() {
                           aria-pressed={message.feedback === "disliked"}
                         >
                           <ThumbsDown className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -752,15 +795,15 @@ export default function ChatInterface() {
                 <span className="text-sm truncate max-w-[200px]">{selectedFile.name}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <button
+                <Button
                   type="button"
                   onClick={handleCancelFile}
                   className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700"
                   aria-label="Cancel file upload"
                 >
                   <X className="h-4 w-4" />
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleFileSubmit}
                   disabled={isUploading}
@@ -770,7 +813,7 @@ export default function ChatInterface() {
                     <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
                   ) : null}
                   Upload
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -786,7 +829,7 @@ export default function ChatInterface() {
               rows={1}
             />
             <div className="absolute right-2 bottom-1.5 flex items-center">
-              <button
+              <Button
                 type="button"
                 className="h-8 w-8 rounded-full hover:bg-gray-800 mr-1 flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-50"
                 onClick={() => fileInputRef.current?.click()}
@@ -799,8 +842,8 @@ export default function ChatInterface() {
                 ) : (
                   <Paperclip className="h-4 w-4" />
                 )}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 className="h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white disabled:opacity-50"
                 onClick={handleSubmit}
@@ -809,7 +852,7 @@ export default function ChatInterface() {
                 aria-label="Send message"
               >
                 <Send className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
             <Input
               type="file"
@@ -819,7 +862,6 @@ export default function ChatInterface() {
               accept="image/*,.pdf,.doc,.docx,.txt"
             />
           </div>
-          <Footer />
         </div>
       </div>
     </div>

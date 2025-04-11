@@ -6,9 +6,9 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-import { Search, Plus, Trash2 } from "lucide-react"
+import { Search, Plus, Trash2 } from 'lucide-react'
 import { cn } from "@/lib/utils"
-import { v4 as uuidv4 } from "uuid"
+import { useRouter } from "next/navigation"
 
 export interface ChatHistory {
   id: string
@@ -35,6 +35,7 @@ export function HistoryPanel({
   const [searchQuery, setSearchQuery] = useState("")
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>(history)
   const [currentChatIdState, setCurrentChatId] = useState<string>(currentChatId)
+  const router = useRouter()
 
   // Sync with localStorage
   useEffect(() => {
@@ -97,6 +98,23 @@ export function HistoryPanel({
 
   const handleSelectChat = (id: string) => {
     setCurrentChatId(id)
+    
+    // Navigate to the chat URL
+    router.push(`/chat/${id}`)
+    
+    // Load the chat messages from localStorage
+    const savedMessages = localStorage.getItem(`chat_messages_${id}`)
+    
+    // Dispatch event to notify ChatInterface to load this chat
+    window.dispatchEvent(
+      new CustomEvent("selectChat", {
+        detail: {
+          chatId: id,
+          messages: savedMessages ? JSON.parse(savedMessages) : [],
+        },
+      }),
+    )
+    
     onSelectChat(id)
   }
 
@@ -104,6 +122,10 @@ export function HistoryPanel({
     e.stopPropagation()
     setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
     onDeleteChat(id)
+    
+    // Remove chat messages from localStorage
+    localStorage.removeItem(`chat_messages_${id}`)
+    
     if (currentChatIdState === id) {
       window.dispatchEvent(new CustomEvent("newChat"))
     }
@@ -114,6 +136,10 @@ export function HistoryPanel({
       e.stopPropagation()
       setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
       onDeleteChat(id)
+      
+      // Remove chat messages from localStorage
+      localStorage.removeItem(`chat_messages_${id}`)
+      
       if (currentChatIdState === id) {
         window.dispatchEvent(new CustomEvent("newChat"))
       }
@@ -121,8 +147,6 @@ export function HistoryPanel({
   }
 
   const handleNewChat = () => {
-    const newChatId = uuidv4()
-    setCurrentChatId(newChatId)
     onNewChat()
   }
 

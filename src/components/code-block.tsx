@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Check, Copy, Edit } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -12,6 +12,7 @@ interface CodeBlockProps {
 
 export function CodeBlock({ language, code, showLineNumbers = true, onEdit }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code)
@@ -25,19 +26,31 @@ export function CodeBlock({ language, code, showLineNumbers = true, onEdit }: Co
     }
   }
 
+  // Reset copied state when code changes
+  useEffect(() => {
+    setCopied(false)
+  }, [])
+
   return (
-    <div className="relative group rounded-md overflow-hidden bg-gray-900 my-4 w-full">
+    <div
+      className="relative group rounded-md overflow-hidden bg-gray-900 my-4 w-full"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
       <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
-        <div className="text-sm text-gray-400">{language}</div>
+        <div className="text-sm text-gray-400 font-mono">{language}</div>
         <div className="flex space-x-2">
           <button
             type="button"
-            className="h-8 px-2 text-sm text-gray-400 hover:text-white flex items-center"
+            className={cn(
+              "h-8 px-2 text-sm flex items-center transition-all duration-200",
+              copied ? "text-green-400" : "text-gray-400 hover:text-white",
+            )}
             onClick={handleCopy}
             aria-label={copied ? "Copied to clipboard" : "Copy code"}
           >
-            {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-            {copied ? "Copied" : "Copy"}
+            {copied ? <Check className={cn("h-4 w-4 mr-1", "animate-fadeIn")} /> : <Copy className="h-4 w-4 mr-1" />}
+            {copied ? "Copied!" : "Copy"}
           </button>
           {onEdit && (
             <button

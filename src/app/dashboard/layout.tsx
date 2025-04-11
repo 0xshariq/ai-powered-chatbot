@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { HistoryPanelContainer } from "@/components/history-panel-container"
 import { Navbar } from "@/components/navbar"
+import { Footer } from "@/components/footer"
 
 export default function DashboardLayout({
   children,
@@ -102,6 +103,7 @@ export default function DashboardLayout({
           role="button"
         />
       )}
+      <Footer />
     </div>
   )
 }

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     // Get the generative model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
 
     // Enhance the prompt to generate well-formatted code in multiple languages
     const enhancedPrompt = `
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     // Generate code using Gemini
     const result = await model.generateContent(enhancedPrompt)
-    const response = await result.response
+    const response = result.response
     const text = response.text()
 
     // Extract code blocks and language sections from the response

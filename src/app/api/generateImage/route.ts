@@ -40,7 +40,7 @@ async function generateWithGemini(prompt: string) {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
 
   // Use Gemini 1.5 Pro model which has image generation capabilities
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" })
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
 
   // For now, we'll use a placeholder since direct image generation isn't available
   // In a production environment, you would use a different approach like:

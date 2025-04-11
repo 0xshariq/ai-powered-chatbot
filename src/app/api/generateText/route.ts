@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     // Get the generative model - Using Gemini Pro as a proxy for Janus-Pro-7B
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
 
     // Generate text
     const result = await model.generateContent(enhancedPrompt)

@@ -51,6 +51,20 @@ export function CodeResponse({ text, codeBlocks, languageSections }: CodeRespons
         </div>
       )}
 
+      {/* Language sections */}
+      {languageSections && languageSections.length > 0 && (
+        <div className="mb-4">
+          <h2 className="text-lg font-medium">Language Sections</h2>
+          <ul className="list-disc list-inside">
+            {languageSections.map((section) => (
+              <li key={section.language} className="text-sm text-gray-400">
+                <strong>{section.language}:</strong> {section.content}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Language sections with checkboxes */}
       {Object.entries(groupedBlocks).map(([language, blocks], index) => (
         <div key={language} className="animate-fadeIn">
@@ -81,8 +95,9 @@ export function CodeResponse({ text, codeBlocks, languageSections }: CodeRespons
           </Button>
 
           {blocks.map((block, blockIndex) => (
-            <div key={`${block.language}-${block.code}`} className="ml-7">
+            <div key={`${block.language}-${blockIndex}`} className="ml-7">
               <CodeBlock language={block.language} code={block.code} />
+              <p className="text-xs text-gray-500 mt-1">Block #{blockIndex + 1}</p>
             </div>
           ))}
         </div>

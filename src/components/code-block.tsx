@@ -37,7 +37,12 @@ export function CodeBlock({ language, code, showLineNumbers = true, onEdit }: Co
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+      <div
+        className={cn(
+          "flex items-center justify-between px-4 py-2 border-b",
+          isHovering ? "bg-gray-700 border-gray-600" : "bg-gray-800 border-gray-700",
+        )}
+      >
         <div className="text-sm text-gray-400 font-mono">{language}</div>
         <div className="flex space-x-2">
           <button

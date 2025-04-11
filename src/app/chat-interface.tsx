@@ -228,13 +228,13 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     let currentSection: string[] = []
     let sectionIndex = 0
 
-    lines.forEach((line, index) => {
+    for (const line of lines) {
       // Check if this is a numbered point (e.g., "1. Something")
       const isNumberedPoint = /^\d+\.\s+/.test(line)
-
+    
       // Check if this is a heading (e.g., "Blockchain Technology:")
       const isHeading = /^[A-Z][^:]+:/.test(line)
-
+    
       if (isNumberedPoint || isHeading) {
         // If we have accumulated content in the current section, add it
         if (currentSection.length > 0) {
@@ -250,12 +250,12 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
           currentSection = []
           sectionIndex++
         }
-
+    
         // Add separator if not the first item
         if (parts.length > 0) {
           parts.push(<Separator key={`sep-${uuidv4()}`} className="my-4 bg-gray-700" />)
         }
-
+    
         // Add the numbered point or heading with appropriate styling
         if (isNumberedPoint) {
           parts.push(
@@ -289,7 +289,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
         // Regular line - add to current section
         currentSection.push(line)
       }
-    })
+    }
 
     // Add any remaining content
     if (currentSection.length > 0) {

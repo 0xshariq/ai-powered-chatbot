@@ -60,21 +60,15 @@ function extractLanguageSections(text: string) {
   const sections = []
 
   const match: RegExpExecArray | null = languageRegex.exec(text)
-  let lastIndex = 0
+  let lastIndex = 0 // Track the last index processed
 
-  while (match !== null) {
+  while ((match) !== null) {
     const language = match[1]
     const startIndex = match.index
 
     // Find the next language section or end of text
-    languageRegex.lastIndex = startIndex + 1
     const nextMatch = languageRegex.exec(text)
     const endIndex = nextMatch ? nextMatch.index : text.length
-
-    // Reset for next iteration
-    if (nextMatch) {
-      languageRegex.lastIndex = startIndex + 1
-    }
 
     // Extract the section content
     const content = text.substring(startIndex, endIndex).trim()
@@ -84,7 +78,19 @@ function extractLanguageSections(text: string) {
       content,
     })
 
+    // Update lastIndex to track progress
     lastIndex = endIndex
+  }
+
+  // Use lastIndex to ensure all text is processed
+  if (lastIndex < text.length) {
+    const remainingText = text.substring(lastIndex).trim()
+    if (remainingText) {
+      sections.push({
+        language: "Unknown",
+        content: remainingText,
+      })
+    }
   }
 
   return sections

@@ -11,7 +11,7 @@ export function Navbar() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => window.dispatchEvent(new CustomEvent("toggleSidebar"))}
+          onClick={() => window.dispatchEvent(new CustomEvent("toggleHistoryBar"))}
           className="text-white hover:bg-gray-700 active:bg-gray-600 transition-colors rounded-md h-9 w-9"
           data-history-toggle
           aria-label="History"

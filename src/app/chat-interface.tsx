@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Footer } from "@/components/footer"
 
 type GenerationType = "text" | "image" | "video" | "code"
 type FeedbackType = "liked" | "disliked" | null
@@ -862,6 +863,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
               accept="image/*,.pdf,.doc,.docx,.txt"
             />
           </div>
+          <Footer />
         </div>
       </div>
     </div>

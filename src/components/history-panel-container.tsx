@@ -34,18 +34,18 @@ export function HistoryPanelContainer() {
     }
   }, [currentChatId])
 
+  // Fix the history panel logic by updating the handleSelectChat function
   const handleSelectChat = (id: string) => {
-    setCurrentChatId(id)
+    setCurrentChatId(id);
 
     // Load the chat messages from localStorage
-    const savedMessages = localStorage.getItem(`chat_messages_${id}`)
+    const savedMessages = localStorage.getItem(`chat_messages_${id}`);
 
     // Dispatch event to notify ChatInterface to load this chat
     window.dispatchEvent(
       new CustomEvent("selectChat", {
         detail: {
           chatId: id,
-          messages: savedMessages ? JSON.parse(savedMessages) : [],
         },
       }),
     )

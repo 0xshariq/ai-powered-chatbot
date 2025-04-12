@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, X, Check } from "lucide-react"
+import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, X, Check } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
@@ -45,9 +45,10 @@ interface SuggestionProps {
   title: string
   description: string
   onClick: () => void
+  prompt: string
 }
 
-const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
+const Suggestion = ({ title, description, onClick, prompt }: SuggestionProps) => (
   <Button
     type="button"
     onClick={onClick}
@@ -59,21 +60,81 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
   </Button>
 )
 
-// Generate a chat ID in the format shown in the image
-function generateChatId() {
-  // Create a base string with the prefix
-  const baseString = "ai-chat-interface-"
-
-  // Generate a random string of 8-10 characters (mix of letters and numbers)
-  const randomChars = Math.random().toString(36).substring(2, 10).toUpperCase()
-
-  // Combine them
-  return `${baseString}${randomChars}`
+// Update the generateChatId function to use the new format
+function generateChatId(content?: string) {
+  // If there's content, use it to create a title-based ID
+  if (content) {
+    // Extract first few words for the title
+    const title = content.split(' ').slice(0, 3).join('-').toLowerCase();
+    // Clean the title (remove special characters)
+    const cleanTitle = title.replace(/[^\w-]/g, '');
+    // Generate a random string
+    const randomId = Math.random().toString(36).substring(2, 8);
+    return `${cleanTitle}-${randomId}`;
+  }
+  
+  // For new chats, use the new format
+  const randomId = Math.random().toString(36).substring(2, 8);
+  return `new-chat-${randomId}`;
 }
 
 interface ChatInterfaceProps {
   initialChatId?: string
 }
+
+// Add a list of suggestions that will be randomized on load
+const SUGGESTION_POOL = [
+  {
+    title: "What are the advantages",
+    description: "of using Next.js?",
+    prompt: "What are the advantages of using Next.js?"
+  },
+  {
+    title: "Write code to",
+    description: "demonstrate dijkstra's algorithm",
+    prompt: "Write code to demonstrate dijkstra's algorithm"
+  },
+  {
+    title: "Generate an image",
+    description: "of a futuristic city",
+    prompt: "Generate an image of a futuristic city"
+  },
+  {
+    title: "Tell me about",
+    description: "artificial intelligence",
+    prompt: "Tell me about artificial intelligence"
+  },
+  {
+    title: "Explain the concept",
+    description: "of blockchain technology",
+    prompt: "Explain the concept of blockchain technology"
+  },
+  {
+    title: "How do I implement",
+    description: "authentication in Next.js?",
+    prompt: "How do I implement authentication in Next.js?"
+  },
+  {
+    title: "Create a design",
+    description: "for a modern dashboard",
+    prompt: "Create a design for a modern dashboard"
+  },
+  {
+    title: "What's the difference",
+    description: "between REST and GraphQL?",
+    prompt: "What's the difference between REST and GraphQL?"
+  },
+  {
+    title: "Generate an image",
+    description: "of a mountain landscape",
+    prompt: "Generate an image of a mountain landscape"
+  },
+  {
+    title: "How can I optimize",
+    description: "my React application?",
+    prompt: "How can I optimize my React application?"
+  }
+];
 
 export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}) {
   const [input, setInput] = useState("")
@@ -92,6 +153,16 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const pathname = usePathname()
+
+  // Add a state for randomized suggestions
+  const [suggestions, setSuggestions] = useState<typeof SUGGESTION_POOL>([]);
+
+  // Add useEffect to randomize suggestions on component mount
+  useEffect(() => {
+    // Shuffle the suggestion pool and take 4 random suggestions
+    const shuffled = [...SUGGESTION_POOL].sort(() => 0.5 - Math.random());
+    setSuggestions(shuffled.slice(0, 4));
+  }, []);
 
   // Load messages for the current chat ID on initial render
   useEffect(() => {
@@ -132,53 +203,48 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     }
   }, [messages, currentChatId])
 
-  // Modify the handleNewChat function to navigate to the new chat
+  // Update the handleNewChat function to use the new generateChatId
   const handleNewChat = () => {
-    const newChatId = generateChatId()
-    setMessages([])
-    setCurrentChatId(newChatId)
-    router.push(`/chat/${newChatId}`, { scroll: false })
-  }
+    const newChatId = generateChatId();
+    setMessages([]);
+    setCurrentChatId(newChatId);
+    router.push(`/chat/${newChatId}`, { scroll: false });
+  };
 
-  // Listen for chat selection events from the HistoryPanel
+  // Fix the history panel logic by updating the event listener for chat selection
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
-      const { chatId, messages: chatMessages } = e.detail
-      setCurrentChatId(chatId)
+      const { chatId } = e.detail;
+      setCurrentChatId(chatId);
 
       // Navigate to the selected chat
-      router.push(`/chat/${chatId}`)
+      router.push(`/chat/${chatId}`);
 
       // Load the messages for this chat
-      if (chatMessages && chatMessages.length > 0) {
-        setMessages(chatMessages)
+      const savedMessages = localStorage.getItem(`chat_messages_${chatId}`);
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages));
       } else {
-        // Try to load from localStorage as a fallback
-        const savedMessages = localStorage.getItem(`chat_messages_${chatId}`)
-        if (savedMessages) {
-          setMessages(JSON.parse(savedMessages))
-        } else {
-          // If no messages found, create an empty chat
-          setMessages([])
-        }
+        // If no messages found, create an empty chat
+        setMessages([]);
       }
-    }
+    };
 
     const handleNewChat = () => {
-      const newChatId = generateChatId()
-      setMessages([])
-      setCurrentChatId(newChatId)
-      router.push(`/chat/${newChatId}`)
-    }
+      const newChatId = generateChatId();
+      setMessages([]);
+      setCurrentChatId(newChatId);
+      router.push(`/chat/${newChatId}`);
+    };
 
-    window.addEventListener("selectChat", handleSelectChat as EventListener)
-    window.addEventListener("newChat", handleNewChat)
+    window.addEventListener("selectChat", handleSelectChat as EventListener);
+    window.addEventListener("newChat", handleNewChat);
 
     return () => {
-      window.removeEventListener("selectChat", handleSelectChat as EventListener)
-      window.removeEventListener("newChat", handleNewChat)
-    }
-  }, [router])
+      window.removeEventListener("selectChat", handleSelectChat as EventListener);
+      window.removeEventListener("newChat", handleNewChat);
+    };
+  }, [router]);
 
   // Save chat to history when messages change
   useEffect(() => {
@@ -427,11 +493,11 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
     // If this is the first message, update the chat ID based on the content
     if (messages.length === 0) {
-      const newChatId = generateChatId()
-      setCurrentChatId(newChatId)
+      const newChatId = generateChatId(currentInput);
+      setCurrentChatId(newChatId);
 
       // Update the URL to reflect the new chat ID
-      router.push(`/chat/${newChatId}`, { scroll: false })
+      router.push(`/chat/${newChatId}`, { scroll: false });
     }
 
     try {
@@ -720,26 +786,15 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
                 {/* Suggestions */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-3xl mx-auto mt-8 px-4">
-                  <Suggestion
-                    title="What are the advantages"
-                    description="of using Next.js?"
-                    onClick={() => handleSuggestionClick("What are the advantages of using Next.js?")}
-                  />
-                  <Suggestion
-                    title="Write code to"
-                    description="demonstrate dijkstra's algorithm"
-                    onClick={() => handleSuggestionClick("Write code to demonstrate dijkstra's algorithm")}
-                  />
-                  <Suggestion
-                    title="Generate an image"
-                    description="of a futuristic city"
-                    onClick={() => handleSuggestionClick("Generate an image of a futuristic city")}
-                  />
-                  <Suggestion
-                    title="Tell me about"
-                    description="artificial intelligence"
-                    onClick={() => handleSuggestionClick("Tell me about artificial intelligence")}
-                  />
+                  {suggestions.map((suggestion) => (
+                    <Suggestion
+                      key={suggestion.title}
+                      title={suggestion.title}
+                      description={suggestion.description}
+                      onClick={() => handleSuggestionClick(suggestion.prompt)}
+                      prompt={suggestion.prompt}
+                    />
+                  ))}
                 </div>
               </div>
             )}

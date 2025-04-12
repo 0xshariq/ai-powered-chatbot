@@ -3,9 +3,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 
 // Initialize the Google Generative AI model
 if (!process.env.GOOGLE_AI_API_KEY) {
-  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.")
+  throw new Error("GOOGLE_AI_API_KEY environment variable is not set");
 }
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
 
 export async function POST(request: Request) {
   try {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     // Get the generative model - Using Gemini Pro as a proxy for Janus-Pro-7B
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
 
     // Generate text
     const result = await model.generateContent(enhancedPrompt)
@@ -48,7 +48,14 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error generating text:", error)
-    return NextResponse.json({ error: "Failed to generate text" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to generate text",
+        text: "I'm sorry, I encountered an error while processing your request. Please try again.",
+        type: "text",
+      },
+      { status: 500 },
+    )
   }
 }
 

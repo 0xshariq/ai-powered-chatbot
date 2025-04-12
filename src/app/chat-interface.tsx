@@ -5,17 +5,17 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, X, Check } from 'lucide-react'
+import { Copy, ThumbsUp, ThumbsDown, MessageSquare, Send, File, Paperclip, X, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { v4 as uuidv4 } from "uuid"
 import { toast } from "sonner"
-import { CodeBlock } from "@/components/code-block"
+import { CodeResponse } from "@/components/code-response"
+import { Footer } from "@/components/footer"
 import { Separator } from "@/components/ui/separator"
 import { useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Footer } from "@/components/footer"
 
 type GenerationType = "text" | "image" | "video" | "code"
 type FeedbackType = "liked" | "disliked" | null
@@ -34,6 +34,10 @@ interface Message {
     language: string
     code: string
   }>
+  languageSections?: Array<{
+    language: string
+    content: string
+  }>
   isStructured?: boolean
 }
 
@@ -44,7 +48,7 @@ interface SuggestionProps {
 }
 
 const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
-  <button
+  <Button
     type="button"
     onClick={onClick}
     onKeyUp={(e) => e.key === "Enter" && onClick()}
@@ -52,19 +56,19 @@ const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
   >
     <h3 className="font-medium mb-1">{title}</h3>
     <p className="text-sm text-gray-400">{description}</p>
-  </button>
+  </Button>
 )
 
-// Generate a chat ID in the format "title-randomid"
-function generateChatId(title?: string) {
-  // Create a base string with the title or default to "new-chat"
-  const baseTitle = title ? title.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').substring(0, 30) : "new-chat"
-  
-  // Generate a random string of 6-8 characters
-  const randomChars = Math.random().toString(36).substring(2, 8)
-  
+// Generate a chat ID in the format shown in the image
+function generateChatId() {
+  // Create a base string with the prefix
+  const baseString = "ai-chat-interface-"
+
+  // Generate a random string of 8-10 characters (mix of letters and numbers)
+  const randomChars = Math.random().toString(36).substring(2, 10).toUpperCase()
+
   // Combine them
-  return `${baseTitle}-${randomChars}`
+  return `${baseString}${randomChars}`
 }
 
 interface ChatInterfaceProps {
@@ -80,6 +84,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [showFilePreview, setShowFilePreview] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -96,8 +101,13 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
       if (savedMessages) {
         setMessages(JSON.parse(savedMessages))
       }
+
+      // Update URL if not already on the correct path
+      if (pathname !== `/chat/${initialChatId}`) {
+        router.push(`/chat/${initialChatId}`, { scroll: false })
+      }
     }
-  }, [initialChatId])
+  }, [initialChatId, pathname, router])
 
   // Auto-resize textarea as user types
   useEffect(() => {
@@ -122,11 +132,22 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     }
   }, [messages, currentChatId])
 
+  // Modify the handleNewChat function to navigate to the new chat
+  const handleNewChat = () => {
+    const newChatId = generateChatId()
+    setMessages([])
+    setCurrentChatId(newChatId)
+    router.push(`/chat/${newChatId}`, { scroll: false })
+  }
+
   // Listen for chat selection events from the HistoryPanel
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
       const { chatId, messages: chatMessages } = e.detail
       setCurrentChatId(chatId)
+
+      // Navigate to the selected chat
+      router.push(`/chat/${chatId}`)
 
       // Load the messages for this chat
       if (chatMessages && chatMessages.length > 0) {
@@ -162,16 +183,14 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
   // Save chat to history when messages change
   useEffect(() => {
     if (messages.length > 0) {
-      // Get the first user message for the title
-      const firstUserMessage = messages.find((m) => m.role === "user")
-      
-      // Generate a title from the first user message
-      const title = firstUserMessage
-        ? firstUserMessage.content.slice(0, 30) + (firstUserMessage.content.length > 30 ? "..." : "")
-        : "New Chat"
-      
       // Get the last assistant message for the preview
       const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
+
+      // Generate a title from the first user message
+      const title =
+        messages[0]?.role === "user"
+          ? messages[0].content.slice(0, 30) + (messages[0].content.length > 30 ? "..." : "")
+          : "New Chat"
 
       // Create preview from the last exchange
       const preview = lastAssistantMessage.slice(0, 40) + (lastAssistantMessage.length > 40 ? "..." : "")
@@ -190,8 +209,10 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     }
   }, [messages, currentChatId])
 
-  const handleCopy = (content: string) => {
+  const handleCopy = (content: string, messageId: string) => {
     navigator.clipboard.writeText(content)
+    setCopied(messageId)
+    setTimeout(() => setCopied(null), 2000)
     toast.success("Copied to clipboard")
   }
 
@@ -199,7 +220,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     setMessages((prevMessages) =>
       prevMessages.map((msg) => {
         if (msg.id === messageId) {
-          // Toggle feedback if clicking the same button
+          // Toggle feedback if clicking the same Button
           const newFeedback = msg.feedback === feedbackType ? null : feedbackType
           return { ...msg, feedback: newFeedback }
         }
@@ -229,13 +250,13 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     let currentSection: string[] = []
     let sectionIndex = 0
 
-    for (const line of lines) {
+    lines.forEach((line, index) => {
       // Check if this is a numbered point (e.g., "1. Something")
       const isNumberedPoint = /^\d+\.\s+/.test(line)
-    
+
       // Check if this is a heading (e.g., "Blockchain Technology:")
       const isHeading = /^[A-Z][^:]+:/.test(line)
-    
+
       if (isNumberedPoint || isHeading) {
         // If we have accumulated content in the current section, add it
         if (currentSection.length > 0) {
@@ -251,22 +272,22 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
           currentSection = []
           sectionIndex++
         }
-    
+
         // Add separator if not the first item
         if (parts.length > 0) {
-          parts.push(<Separator key={`sep-${uuidv4()}`} className="my-4 bg-gray-700" />)
+          parts.push(<Separator key={`sep-${sectionIndex}`} className="my-4 bg-gray-700" />)
         }
-    
+
         // Add the numbered point or heading with appropriate styling
         if (isNumberedPoint) {
           parts.push(
-            <div key={`point-${uuidv4()}`} className="mb-2 animate-fadeIn">
+            <div key={`point-${line}-${line.trim().length}`} className="mb-2 animate-fadeIn">
               <p className="font-semibold">{line}</p>
             </div>,
           )
         } else if (isHeading) {
           parts.push(
-            <div key={`heading-${uuidv4()}`} className="mb-2 animate-fadeIn">
+            <div key={`heading-${line}-${index}-${line.trim().length}`} className="mb-2 animate-fadeIn">
               <h3 className="font-semibold text-lg">{line}</h3>
             </div>,
           )
@@ -290,7 +311,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
         // Regular line - add to current section
         currentSection.push(line)
       }
-    }
+    })
 
     // Add any remaining content
     if (currentSection.length > 0) {
@@ -312,53 +333,13 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
   const formatMessageContent = (message: Message) => {
     // For code type messages with code blocks
     if (message.type === "code" && message.codeBlocks && message.codeBlocks.length > 0) {
-      const parts = []
-      let lastIndex = 0
-      const codeBlockRegex = /\`\`\`(\w+)?\s*\n([\s\S]*?)\n\`\`\`/g
-
-      // Extract text before the first code block
-      const firstCodeBlockMatch = codeBlockRegex.exec(message.content)
-      if (firstCodeBlockMatch && firstCodeBlockMatch.index > 0) {
-        parts.push(
-          <p key="intro" className="whitespace-pre-wrap mb-4">
-            {message.content.substring(0, firstCodeBlockMatch.index)}
-          </p>,
-        )
-      }
-
-      // Reset regex
-      codeBlockRegex.lastIndex = 0
-
-      // Process all code blocks
-      const match: RegExpExecArray | null = codeBlockRegex.exec(message.content)
-      while ((match) !== null) {
-        // Add text between code blocks
-        if (match.index > lastIndex && lastIndex > 0) {
-          parts.push(
-            <p key={`text-${lastIndex}`} className="whitespace-pre-wrap my-4">
-              {message.content.substring(lastIndex, match.index)}
-            </p>,
-          )
-        }
-
-        // Add code block
-        const language = match[1] || "text"
-        const code = match[2].trim()
-        parts.push(<CodeBlock key={`code-${match.index}`} language={language} code={code} />)
-
-        lastIndex = match.index + match[0].length
-      }
-
-      // Add remaining text after last code block
-      if (lastIndex < message.content.length) {
-        parts.push(
-          <p key={`text-${lastIndex}`} className="whitespace-pre-wrap mt-4">
-            {message.content.substring(lastIndex)}
-          </p>,
-        )
-      }
-
-      return <>{parts}</>
+      return (
+        <CodeResponse
+          text={message.content}
+          codeBlocks={message.codeBlocks}
+          languageSections={message.languageSections}
+        />
+      )
     }
     // For structured text responses (explanations)
     if (message.type === "text" && message.isStructured) {
@@ -446,9 +427,9 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
     // If this is the first message, update the chat ID based on the content
     if (messages.length === 0) {
-      const newChatId = generateChatId(currentInput)
+      const newChatId = generateChatId()
       setCurrentChatId(newChatId)
-      
+
       // Update the URL to reflect the new chat ID
       router.push(`/chat/${newChatId}`, { scroll: false })
     }
@@ -471,7 +452,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
         body: JSON.stringify({ prompt: currentInput }),
       })
 
-      if (!response.ok) throw new Error("Failed to generate response")
+      if (!response.ok) throw new Error(`Failed to generate response: ${response.statusText}`)
 
       const data = await response.json()
 
@@ -495,7 +476,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
         {
           id: uuidv4(),
           role: "assistant",
-          content: "I'm sorry, I encountered an error while processing your request.",
+          content: "I'm sorry, I encountered an error while processing your request. Please try again.",
           timestamp: new Date().toLocaleTimeString(),
           type: "text",
         },
@@ -614,13 +595,13 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     <div className="flex flex-col h-full bg-black text-white" ref={chatContainerRef}>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full py-4" ref={scrollAreaRef}>
-          <div className="max-w-3xl mx-auto space-y-8 pb-20 px-4">
+          <div className="max-w-4xl mx-auto space-y-8 pb-20 px-4">
             {messages.length > 0 ? (
               messages.map((message, index) => (
                 <div
                   key={message.id || `${message.timestamp}-${index}`}
                   className={cn(
-                    "w-full max-w-2xl mx-auto",
+                    "w-full max-w-3xl mx-auto",
                     message.role === "user" ? "flex justify-end" : "flex justify-start",
                     message.role === "user" ? "user-message" : "assistant-message",
                   )}
@@ -690,11 +671,11 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
                         <Button
                           type="button"
                           className="h-8 w-8 rounded-full hover:bg-gray-800 flex items-center justify-center"
-                          onClick={() => handleCopy(message.content)}
-                          onKeyUp={(e) => e.key === "Enter" && handleCopy(message.content)}
+                          onClick={() => handleCopy(message.content, message.id)}
+                          onKeyUp={(e) => e.key === "Enter" && handleCopy(message.content, message.id)}
                           aria-label="Copy message"
                         >
-                          <Copy className="h-4 w-4" />
+                          {copied === message.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                         </Button>
                         <Button
                           type="button"
@@ -738,7 +719,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
                 </p>
 
                 {/* Suggestions */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto mt-8 px-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-3xl mx-auto mt-8 px-4">
                   <Suggestion
                     title="What are the advantages"
                     description="of using Next.js?"
@@ -788,7 +769,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
       {/* Input area - fixed at bottom */}
       <div className="p-2 sm:p-4 border-t border-gray-800 bg-black fixed bottom-0 left-0 right-0 z-10">
-        <div className="max-w-2xl mx-auto w-full px-2">
+        <div className="max-w-3xl mx-auto w-full px-2">
           {showFilePreview && selectedFile && (
             <div className="mb-2 p-2 bg-gray-800 rounded-md flex items-center justify-between animate-fadeIn">
               <div className="flex items-center">

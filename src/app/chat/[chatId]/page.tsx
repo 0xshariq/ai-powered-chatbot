@@ -1,8 +1,8 @@
 import ChatInterface from "@/app/chat-interface"
 import { notFound } from "next/navigation"
 
-export default async function ChatPage({ params }: { params: { chatId: string } }) {
-  // Ensure params is awaited before accessing its properties
+export default async function ChatPage({ params }: { params: Promise<{ chatId: string }> }) {
+  // Await the params to access its properties
   const { chatId } = await params
 
   // Validate the chatId format to ensure it's legitimate

@@ -44,15 +44,15 @@ interface Message {
 interface SuggestionProps {
   title: string
   description: string
-  onClick: () => void
+  onClick: (prompt: string) => void
   prompt: string
 }
 
 const Suggestion = ({ title, description, onClick, prompt }: SuggestionProps) => (
   <Button
     type="button"
-    onClick={onClick}
-    onKeyUp={(e) => e.key === "Enter" && onClick()}
+    onClick={() => onClick(prompt)} // Pass `prompt` to the `onClick` handler
+    onKeyUp={(e) => e.key === "Enter" && onClick(prompt)} // Pass `prompt` here as well
     className="text-left p-4 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors w-full hover:shadow-md animate-fadeIn"
   >
     <h3 className="font-medium mb-1">{title}</h3>
@@ -203,14 +203,6 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     }
   }, [messages, currentChatId])
 
-  // Update the handleNewChat function to use the new generateChatId
-  const handleNewChat = () => {
-    const newChatId = generateChatId();
-    setMessages([]);
-    setCurrentChatId(newChatId);
-    router.push(`/chat/${newChatId}`, { scroll: false });
-  };
-
   // Fix the history panel logic by updating the event listener for chat selection
   useEffect(() => {
     const handleSelectChat = (e: CustomEvent) => {
@@ -234,7 +226,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
       const newChatId = generateChatId();
       setMessages([]);
       setCurrentChatId(newChatId);
-      router.push(`/chat/${newChatId}`);
+      router.push(`/chat/${newChatId}`, { scroll: false });
     };
 
     window.addEventListener("selectChat", handleSelectChat as EventListener);

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
 // Initialize the Google Generative AI model
-if (!process.env.GOOGLE_AI_API_KEY) {
-  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.")
+const apiKey = process.env.GOOGLE_AI_API_KEY;
+if (!apiKey) {
+  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.");
 }
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function POST(request: Request) {
   try {
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
 
     // Generate code using Gemini
     const result = await model.generateContent(enhancedPrompt)
-    const response = result.response
+    const response = await result.response
     const text = response.text()
 
     // Extract code blocks and language sections from the response
@@ -49,7 +50,15 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error generating code:", error)
-    return NextResponse.json({ error: "Failed to generate code" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to generate code",
+        text: "I'm sorry, I encountered an error while generating code. Please try again.",
+        type: "code",
+        codeBlocks: [],
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -59,16 +68,22 @@ function extractLanguageSections(text: string) {
     /(?:^|\n)(?:#{1,3}\s*)?(Python|JavaScript|TypeScript|Java|C\+\+|C#|Ruby|Go|PHP|Rust|Swift)(?:\s*:|\n)/gi
   const sections = []
 
-  const match: RegExpExecArray | null = languageRegex.exec(text)
-  let lastIndex = 0 // Track the last index processed
+  const match = languageRegex.exec(text)
+  let lastIndex = 0
 
   while ((match) !== null) {
     const language = match[1]
     const startIndex = match.index
 
     // Find the next language section or end of text
+    languageRegex.lastIndex = startIndex + 1
     const nextMatch = languageRegex.exec(text)
     const endIndex = nextMatch ? nextMatch.index : text.length
+
+    // Reset for next iteration
+    if (nextMatch) {
+      languageRegex.lastIndex = startIndex + 1
+    }
 
     // Extract the section content
     const content = text.substring(startIndex, endIndex).trim()
@@ -78,19 +93,7 @@ function extractLanguageSections(text: string) {
       content,
     })
 
-    // Update lastIndex to track progress
     lastIndex = endIndex
-  }
-
-  // Use lastIndex to ensure all text is processed
-  if (lastIndex < text.length) {
-    const remainingText = text.substring(lastIndex).trim()
-    if (remainingText) {
-      sections.push({
-        language: "Unknown",
-        content: remainingText,
-      })
-    }
   }
 
   return sections
@@ -101,7 +104,7 @@ function extractCodeBlocks(text: string) {
   const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
   const codeBlocks = []
 
-  const match : RegExpExecArray | null = codeBlockRegex.exec(text)
+  const match = codeBlockRegex.exec(text)
   while (match !== null) {
     codeBlocks.push({
       language: match[1]?.toLowerCase() || "text",

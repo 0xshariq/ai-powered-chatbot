@@ -1,12 +1,4 @@
 import { NextResponse } from "next/server"
-import { GoogleGenerativeAI } from "@google/generative-ai"
-
-// Initialize the Google Generative AI model
-const apiKey = process.env.GOOGLE_AI_API_KEY;
-if (!apiKey) {
-  throw new Error("GOOGLE_AI_API_KEY is not defined in the environment variables.");
-}
-const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function POST(request: Request) {
   try {
@@ -16,101 +8,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // Get the generative model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    try {
+      // Using Replicate API for video generation (free tier available)
+      const response = await fetch("https://api.replicate.com/v1/predictions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+        },
+        body: JSON.stringify({
+          version: "c24440e965843dd1d5d6ef78fd4b8d3d7d138d9f5c0d1b82648512fd89e342b1", // Zeroscope v2 XL model
+          input: {
+            prompt: prompt,
+            num_frames: 24, // Lower frame count to use fewer credits
+            fps: 8,
+          },
+        }),
+      })
 
-    // Enhance the prompt to generate well-formatted code in multiple languages
-    const enhancedPrompt = `
-      Generate clean, well-commented code for the following request: ${prompt}
-      
-      Please provide examples in multiple programming languages (Python, JavaScript, and C++ if applicable).
-      
-      For each language:
-      1. Start with a brief introduction
-      2. Include the code in a code block with proper syntax highlighting
-      3. Add helpful comments to explain the code
-      
-      Format each language section with a clear heading.
-    `
+      if (!response.ok) {
+        throw new Error(`Replicate API error: ${response.statusText}`)
+      }
 
-    // Generate code using Gemini
-    const result = await model.generateContent(enhancedPrompt)
-    const response = await result.response
-    const text = response.text()
+      const prediction = await response.json()
 
-    // Extract code blocks and language sections from the response
-    const languageSections = extractLanguageSections(text)
-    const codeBlocks = extractCodeBlocks(text)
+      // For async APIs like Replicate, we need to poll for the result
+      // In a real implementation, you would use a webhook or polling
+      // For this example, we'll return a placeholder and explain the process
 
-    return NextResponse.json({
-      text: text,
-      type: "code",
-      codeBlocks: codeBlocks,
-      languageSections: languageSections,
-    })
-  } catch (error) {
-    console.error("Error generating code:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to generate code",
-        text: "I'm sorry, I encountered an error while generating code. Please try again.",
-        type: "code",
-        codeBlocks: [],
-      },
-      { status: 500 },
-    )
-  }
-}
+      const placeholderVideo = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 
-// Helper function to extract language sections from text
-function extractLanguageSections(text: string) {
-  const languageRegex =
-    /(?:^|\n)(?:#{1,3}\s*)?(Python|JavaScript|TypeScript|Java|C\+\+|C#|Ruby|Go|PHP|Rust|Swift)(?:\s*:|\n)/gi
-  const sections = []
+      return NextResponse.json({
+        text: `I've started generating a video based on your prompt: "${prompt}"\n\nVideo generation takes time (typically 1-2 minutes). In a production environment, this would be handled through a webhook or polling mechanism.\n\nFor now, here's a placeholder video.`,
+        mediaUrl: placeholderVideo,
+        type: "video",
+        predictionId: prediction.id, // You would use this to poll for the result
+      })
+    } catch (error) {
+      console.error("Error with Replicate API:", error)
 
-  const match = languageRegex.exec(text)
-  let lastIndex = 0
+      // Fallback to placeholder if Replicate fails
+      const placeholderVideo = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 
-  while ((match) !== null) {
-    const language = match[1]
-    const startIndex = match.index
-
-    // Find the next language section or end of text
-    languageRegex.lastIndex = startIndex + 1
-    const nextMatch = languageRegex.exec(text)
-    const endIndex = nextMatch ? nextMatch.index : text.length
-
-    // Reset for next iteration
-    if (nextMatch) {
-      languageRegex.lastIndex = startIndex + 1
+      return NextResponse.json({
+        text: `I tried to generate a video for "${prompt}", but encountered an issue with the video generation service. Here's a placeholder instead.`,
+        mediaUrl: placeholderVideo,
+        type: "video",
+      })
     }
-
-    // Extract the section content
-    const content = text.substring(startIndex, endIndex).trim()
-
-    sections.push({
-      language,
-      content,
-    })
-
-    lastIndex = endIndex
+  } catch (error) {
+    console.error("Error generating video:", error)
+    return NextResponse.json({ error: "Failed to generate video" }, { status: 500 })
   }
-
-  return sections
 }
 
-// Helper function to extract code blocks from text
-function extractCodeBlocks(text: string) {
-  const codeBlockRegex = /```(\w+)?\s*\n([\s\S]*?)\n```/g
-  const codeBlocks = []
-
-  const match = codeBlockRegex.exec(text)
-  while (match !== null) {
-    codeBlocks.push({
-      language: match[1]?.toLowerCase() || "text",
-      code: match[2].trim(),
-    })
-  }
-
-  return codeBlocks
-}

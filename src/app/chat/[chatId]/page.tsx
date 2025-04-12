@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 
 export default async function ChatPage({ params }: { params: { chatId: string } }) {
   // Ensure params is awaited before accessing its properties
-  const { chatId } =await params
+  const { chatId } = await params
 
   // Validate the chatId format to ensure it's legitimate
   // The format should be "title-randomid"

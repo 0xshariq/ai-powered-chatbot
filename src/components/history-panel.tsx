@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Search, Plus, Trash2 } from 'lucide-react'
 import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
+import { v4 as uuidv4 } from "uuid"
 
 export interface ChatHistory {
   id: string
@@ -35,7 +35,6 @@ export function HistoryPanel({
   const [searchQuery, setSearchQuery] = useState("")
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>(history)
   const [currentChatIdState, setCurrentChatId] = useState<string>(currentChatId)
-  const router = useRouter()
 
   // Sync with localStorage
   useEffect(() => {
@@ -96,25 +95,10 @@ export function HistoryPanel({
     return () => window.removeEventListener("chatUpdate", handleChatUpdate as EventListener)
   }, [])
 
+  // Add a console log to debug the chat selection
   const handleSelectChat = (id: string) => {
+    console.log("Selecting chat:", id);
     setCurrentChatId(id)
-    
-    // Navigate to the chat URL
-    router.push(`/chat/${id}`)
-    
-    // Load the chat messages from localStorage
-    const savedMessages = localStorage.getItem(`chat_messages_${id}`)
-    
-    // Dispatch event to notify ChatInterface to load this chat
-    window.dispatchEvent(
-      new CustomEvent("selectChat", {
-        detail: {
-          chatId: id,
-          messages: savedMessages ? JSON.parse(savedMessages) : [],
-        },
-      }),
-    )
-    
     onSelectChat(id)
   }
 
@@ -122,10 +106,6 @@ export function HistoryPanel({
     e.stopPropagation()
     setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
     onDeleteChat(id)
-    
-    // Remove chat messages from localStorage
-    localStorage.removeItem(`chat_messages_${id}`)
-    
     if (currentChatIdState === id) {
       window.dispatchEvent(new CustomEvent("newChat"))
     }
@@ -136,10 +116,6 @@ export function HistoryPanel({
       e.stopPropagation()
       setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
       onDeleteChat(id)
-      
-      // Remove chat messages from localStorage
-      localStorage.removeItem(`chat_messages_${id}`)
-      
       if (currentChatIdState === id) {
         window.dispatchEvent(new CustomEvent("newChat"))
       }
@@ -147,6 +123,8 @@ export function HistoryPanel({
   }
 
   const handleNewChat = () => {
+    const newChatId = uuidv4()
+    setCurrentChatId(newChatId)
     onNewChat()
   }
 
@@ -191,7 +169,7 @@ export function HistoryPanel({
         <div className="space-y-2 p-2">
           {filteredHistory.length > 0 ? (
             filteredHistory.map((chat) => (
-              <button
+              <Button
                 key={chat.id}
                 type="button"
                 className={cn(
@@ -204,7 +182,7 @@ export function HistoryPanel({
               >
                 <div className="flex justify-between items-start w-full">
                   <div className="font-medium truncate text-white flex-1">{chat.title}</div>
-                  <button
+                  <Button
                     type="button"
                     className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-white hover:bg-gray-700 rounded flex items-center justify-center"
                     onClick={(e) => handleDeleteChat(chat.id, e)}
@@ -212,11 +190,11 @@ export function HistoryPanel({
                     aria-label={`Delete chat ${chat.title}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 </div>
                 <div className="text-sm text-gray-400 truncate mt-1">{chat.preview}</div>
                 <div className="text-xs text-gray-500 mt-2">{chat.timestamp}</div>
-              </button>
+              </Button>
             ))
           ) : (
             <div className="text-center py-8 text-gray-400">

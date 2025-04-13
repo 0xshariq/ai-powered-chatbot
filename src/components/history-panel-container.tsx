@@ -1,93 +1,90 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { HistoryPanel, type ChatHistory } from "@/components/history-panel"
+import { useState, useEffect } from "react";
+import { HistoryPanel, type ChatHistory } from "@/components/history-panel";
 
 export function HistoryPanelContainer() {
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([])
-  const [currentChatId, setCurrentChatId] = useState<string>("")
+  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string>("");
 
   // Load chat history from localStorage on component mount
   useEffect(() => {
-    const savedHistory = localStorage.getItem("chatHistory")
+    const savedHistory = localStorage.getItem("chatHistory");
     if (savedHistory) {
-      setChatHistory(JSON.parse(savedHistory))
+      setChatHistory(JSON.parse(savedHistory));
     }
 
-    const savedCurrentChatId = localStorage.getItem("currentChatId")
+    const savedCurrentChatId = localStorage.getItem("currentChatId");
     if (savedCurrentChatId) {
-      setCurrentChatId(savedCurrentChatId)
+      setCurrentChatId(savedCurrentChatId);
     }
-  }, [])
+  }, []);
 
   // Save chat history to localStorage when it changes
   useEffect(() => {
     if (chatHistory.length > 0) {
-      localStorage.setItem("chatHistory", JSON.stringify(chatHistory))
+      localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
     }
-  }, [chatHistory])
+  }, [chatHistory]);
 
   // Save current chat ID to localStorage when it changes
   useEffect(() => {
     if (currentChatId) {
-      localStorage.setItem("currentChatId", currentChatId)
+      localStorage.setItem("currentChatId", currentChatId);
     }
-  }, [currentChatId])
+  }, [currentChatId]);
 
-  // Fix the history panel logic by updating the handleSelectChat function
   const handleSelectChat = (id: string) => {
-    setCurrentChatId(id)
-  
+    console.log("History panel container selecting chat:", id);
+    setCurrentChatId(id);
+
     // Load the chat messages from localStorage
-    const savedMessages = localStorage.getItem(`chat_messages_${id}`)
-  
-    if (savedMessages) {
-      console.log(`Loaded messages for chat ID ${id}:`, JSON.parse(savedMessages))
-    }
-  
+    const savedMessages = localStorage.getItem(`chat_messages_${id}`);
+
     // Dispatch event to notify ChatInterface to load this chat
     window.dispatchEvent(
       new CustomEvent("selectChat", {
         detail: {
           chatId: id,
+          messages: savedMessages ? JSON.parse(savedMessages) : [],
         },
-      }),
-    )
-  }
+      })
+    );
+  };
 
   const handleDeleteChat = (id: string) => {
-    setChatHistory((prev) => prev.filter((chat) => chat.id !== id))
+    setChatHistory((prev) => prev.filter((chat) => chat.id !== id));
 
     // Remove chat messages from localStorage
-    localStorage.removeItem(`chat_messages_${id}`)
+    localStorage.removeItem(`chat_messages_${id}`);
 
     if (currentChatId === id) {
       // If the current chat is deleted, create a new chat
-      window.dispatchEvent(new CustomEvent("newChat"))
+      window.dispatchEvent(new CustomEvent("newChat"));
     }
-  }
+  };
 
   const handleNewChat = () => {
-    window.dispatchEvent(new CustomEvent("newChat"))
-  }
+    window.dispatchEvent(new CustomEvent("newChat"));
+  };
 
   // Listen for chat updates from the ChatInterface component
   useEffect(() => {
     const handleChatUpdate = (e: CustomEvent) => {
-      const { chatId, title, preview, timestamp } = e.detail
+      const { chatId, title, preview, timestamp } = e.detail;
 
       setChatHistory((prev) => {
-        const existingChatIndex = prev.findIndex((chat) => chat.id === chatId)
+        const existingChatIndex = prev.findIndex((chat) => chat.id === chatId);
 
         if (existingChatIndex >= 0) {
-          const updatedHistory = [...prev]
+          const updatedHistory = [...prev];
           updatedHistory[existingChatIndex] = {
             ...updatedHistory[existingChatIndex],
             title,
             preview,
             timestamp,
-          }
-          return updatedHistory
+          };
+          return updatedHistory;
         }
         return [
           ...prev,
@@ -97,18 +94,21 @@ export function HistoryPanelContainer() {
             preview,
             timestamp,
           },
-        ]
-      })
+        ];
+      });
 
-      setCurrentChatId(chatId)
-    }
+      setCurrentChatId(chatId);
+    };
 
-    window.addEventListener("chatUpdate", handleChatUpdate as EventListener)
+    window.addEventListener("chatUpdate", handleChatUpdate as EventListener);
 
     return () => {
-      window.removeEventListener("chatUpdate", handleChatUpdate as EventListener)
-    }
-  }, [])
+      window.removeEventListener(
+        "chatUpdate",
+        handleChatUpdate as EventListener
+      );
+    };
+  }, []);
 
   return (
     <div className="h-full bg-gray-900 border-r border-gray-800">
@@ -120,5 +120,5 @@ export function HistoryPanelContainer() {
         currentChatId={currentChatId}
       />
     </div>
-  )
+  );
 }

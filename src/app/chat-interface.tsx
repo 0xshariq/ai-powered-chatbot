@@ -46,11 +46,7 @@ interface SuggestionProps {
   description: string
   onClick: () => void
 }
-declare global {
-  interface String {
-    hashCode(): number;
-  }
-}
+
 const Suggestion = ({ title, description, onClick }: SuggestionProps) => (
   <Button
     type="button"
@@ -118,7 +114,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
   const [, setGenerationType] = useState<GenerationType>("text")
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const [currentChatId, setCurrentChatId] = useState<string>(initialChatId || generateChatId())
+  const [currentChatId, setCurrentChatId] = useState<string>(initialChatId || "")
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [showFilePreview, setShowFilePreview] = useState(false)
@@ -131,8 +127,6 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const pathname = usePathname()
-  // Add a new state variable to track if the current chat has an ID
-  const [hasAssignedId, setHasAssignedId] = useState<boolean>(!!initialChatId)
 
   // Randomize suggestions on component mount
   useEffect(() => {
@@ -191,6 +185,11 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
         const { chatId } = e.detail
         console.log("Received selectChat event for chatId:", chatId)
 
+        if (!chatId) {
+          console.error("No chatId provided in selectChat event")
+          return
+        }
+
         setCurrentChatId(chatId)
 
         // Navigate to the selected chat
@@ -214,7 +213,6 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
       try {
         setMessages([])
         setCurrentChatId("")
-        setHasAssignedId(false)
         router.push("/dashboard")
       } catch (error) {
         console.error("Error handling newChat event:", error)
@@ -232,7 +230,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
   // Save chat to history when messages change
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && currentChatId) {
       try {
         // Get the last assistant message for the preview
         const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant")?.content || ""
@@ -271,6 +269,8 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
   }
 
   const handleFeedback = async (messageId: string, feedbackType: FeedbackType) => {
+    if (!currentChatId) return
+
     setMessages((prevMessages) =>
       prevMessages.map((msg) => {
         if (msg.id === messageId) {
@@ -304,14 +304,13 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     let currentSection: string[] = []
     let sectionIndex = 0
 
-    // biome-ignore lint/complexity/noForEach: <explanation>
-    lines.forEach((line) => {
+    for (const line of lines) {
       // Check if this is a numbered point (e.g., "1. Something")
       const isNumberedPoint = /^\d+\.\s+/.test(line)
-
+    
       // Check if this is a heading (e.g., "Blockchain Technology:")
       const isHeading = /^[A-Z][^:]+:/.test(line)
-
+    
       if (isNumberedPoint || isHeading) {
         // If we have accumulated content in the current section, add it
         if (currentSection.length > 0) {
@@ -327,22 +326,22 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
           currentSection = []
           sectionIndex++
         }
-
+    
         // Add separator if not the first item
         if (parts.length > 0) {
-          parts.push(<Separator key={`sep-${sectionIndex}`} className="my-4 bg-gray-700" />)
+          parts.push(<Separator key={`sep-${uuidv4()}`} className="my-4 bg-gray-700" />)
         }
-
+    
         // Add the numbered point or heading with appropriate styling
         if (isNumberedPoint) {
           parts.push(
-            <div key={`point-${line.hashCode()}`} className="mb-2 animate-fadeIn">
+            <div key={`point-${uuidv4()}`} className="mb-2 animate-fadeIn">
               <p className="font-semibold">{line}</p>
             </div>,
           )
         } else if (isHeading) {
           parts.push(
-            <div key={`heading-${line.hashCode()}`} className="mb-2 animate-fadeIn">
+            <div key={`heading-${uuidv4()}`} className="mb-2 animate-fadeIn">
               <h3 className="font-semibold text-lg">{line}</h3>
             </div>,
           )
@@ -364,22 +363,9 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
         }
       } else {
         // Regular line - add to current section
-        // Add a custom hashCode method to the String prototype
-        
-        if (!String.prototype.hashCode) {
-          String.prototype.hashCode = function (): number {
-            let hash = 0;
-            for (let i = 0; i < this.length; i++) {
-              const char = this.charCodeAt(i);
-              hash = (hash << 5) - hash + char;
-              hash |= 0; // Convert to 32bit integer
-            }
-            return hash;
-          };
-        }
         currentSection.push(line)
       }
-    })
+    }
 
     // Add any remaining content
     if (currentSection.length > 0) {
@@ -414,7 +400,7 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
       return formatStructuredText(message.content)
     }
     // For regular text messages
-    return <p className="whitespace-pre-wrap">{message.content}</p>
+      return <p className="whitespace-pre-wrap">{message.content}</p>
   }
 
   // Detect generation type from input
@@ -493,13 +479,10 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
 
-    // Update the handleSubmit function to generate a chat ID only when needed
-    // In the handleSubmit function, replace this section:
-    // If this is the first message, update the chat ID based on the content
-    if (messages.length === 0 || !hasAssignedId) {
+    // Generate a chat ID if this is the first message
+    if (!currentChatId) {
       const newChatId = generateChatId()
       setCurrentChatId(newChatId)
-      setHasAssignedId(true)
 
       // Update the URL to reflect the new chat ID
       router.push(`/chat/${newChatId}`, { scroll: false })
@@ -527,31 +510,37 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
       const data = await response.json()
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: uuidv4(),
-          role: "assistant",
-          content: data.text || "Generated content",
-          timestamp: new Date().toLocaleTimeString(),
-          type: detectedType,
-          mediaUrl: data.mediaUrl,
-          codeBlocks: data.codeBlocks,
-          isStructured: data.isStructured,
-        },
-      ])
+      const assistantMessage: Message = {
+        id: uuidv4(),
+        role: "assistant",
+        content: data.text || "Generated content",
+        timestamp: new Date().toLocaleTimeString(),
+        type: detectedType,
+        mediaUrl: data.mediaUrl,
+        codeBlocks: data.codeBlocks,
+        isStructured: data.isStructured,
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+
+      // Save the updated messages to localStorage
+      const updatedMessages = [...messages, userMessage, assistantMessage]
+      localStorage.setItem(`chat_messages_${currentChatId}`, JSON.stringify(updatedMessages))
     } catch (error) {
       console.error("Error generating response:", error)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: uuidv4(),
-          role: "assistant",
-          content: "I'm sorry, I encountered an error while processing your request. Please try again.",
-          timestamp: new Date().toLocaleTimeString(),
-          type: "text",
-        },
-      ])
+      const errorMessage: Message = {
+        id: uuidv4(),
+        role: "assistant",
+        content: "I'm sorry, I encountered an error while processing your request. Please try again.",
+        timestamp: new Date().toLocaleTimeString(),
+        type: "text",
+      }
+
+      setMessages((prev) => [...prev, errorMessage])
+
+      // Save the error message to localStorage too
+      const updatedMessages = [...messages, userMessage, errorMessage]
+      localStorage.setItem(`chat_messages_${currentChatId}`, JSON.stringify(updatedMessages))
     } finally {
       setIsLoading(false)
       // Focus the textarea after submission
@@ -590,6 +579,15 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
     setIsUploading(true)
 
+    // Generate a chat ID if this is the first message
+    if (!currentChatId) {
+      const newChatId = generateChatId()
+      setCurrentChatId(newChatId)
+
+      // Update the URL to reflect the new chat ID
+      router.push(`/chat/${newChatId}`, { scroll: false })
+    }
+
     try {
       // Create FormData and append file
       const formData = new FormData()
@@ -608,31 +606,31 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
       // Add file message to chat
       const fileMessageId = uuidv4()
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: fileMessageId,
-          role: "user",
-          content: `Uploaded file: ${data.fileName}`,
-          timestamp: new Date().toLocaleTimeString(),
-          type: data.fileType.startsWith("image/") ? "image" : "text",
-          mediaUrl: data.mediaUrl,
-          fileType: data.fileType,
-          fileName: data.fileName,
-        },
-      ])
+      const fileMessage = {
+        id: fileMessageId,
+        role: "user",
+        content: `Uploaded file: ${data.fileName}`,
+        timestamp: new Date().toLocaleTimeString(),
+        type: data.fileType.startsWith("image/") ? "image" : "text",
+        mediaUrl: data.mediaUrl,
+        fileType: data.fileType,
+        fileName: data.fileName,
+      }
 
       // Add AI response
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: uuidv4(),
-          role: "assistant",
-          content: data.text,
-          timestamp: new Date().toLocaleTimeString(),
-          type: "text",
-        },
-      ])
+      const aiResponse = {
+        id: uuidv4(),
+        role: "assistant",
+        content: data.text,
+        timestamp: new Date().toLocaleTimeString(),
+        type: "text",
+      }
+
+      setMessages((prev) => [...prev, fileMessage as Message, aiResponse as Message])
+
+      // Save the updated messages to localStorage
+      const updatedMessages = [...messages, fileMessage, aiResponse]
+      localStorage.setItem(`chat_messages_${currentChatId}`, JSON.stringify(updatedMessages))
 
       // Use the correct toast API from sonner
       toast("File uploaded", {
@@ -791,39 +789,14 @@ export default function ChatInterface({ initialChatId }: ChatInterfaceProps = {}
 
                 {/* Suggestions */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-3xl mx-auto mt-8 px-4">
-                  {randomSuggestions.length > 0 ? (
-                    randomSuggestions.map((suggestion) => (
-                      <Suggestion
-                        key={suggestion.title}
-                        title={suggestion.title}
-                        description={suggestion.description}
-                        onClick={() => handleSuggestionClick(suggestion.prompt)}
-                      />
-                    ))
-                  ) : (
-                    <>
-                      <Suggestion
-                        title="What are the advantages"
-                        description="of using Next.js?"
-                        onClick={() => handleSuggestionClick("What are the advantages of using Next.js?")}
-                      />
-                      <Suggestion
-                        title="Write code to"
-                        description="demonstrate dijkstra's algorithm"
-                        onClick={() => handleSuggestionClick("Write code to demonstrate dijkstra's algorithm")}
-                      />
-                      <Suggestion
-                        title="Generate an image"
-                        description="of a futuristic city"
-                        onClick={() => handleSuggestionClick("Generate an image of a futuristic city")}
-                      />
-                      <Suggestion
-                        title="Tell me about"
-                        description="artificial intelligence"
-                        onClick={() => handleSuggestionClick("Tell me about artificial intelligence")}
-                      />
-                    </>
-                  )}
+                  {randomSuggestions.map((suggestion) => (
+                    <Suggestion
+                      key={suggestion.prompt}
+                      title={suggestion.title}
+                      description={suggestion.description}
+                      onClick={() => handleSuggestionClick(suggestion.prompt)}
+                    />
+                  ))}
                 </div>
               </div>
             )}

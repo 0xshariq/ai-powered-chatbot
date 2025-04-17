@@ -4,4 +4,3 @@ export default function HomePage() {
   redirect("/dashboard")
   return null
 }
-
